@@ -1,56 +1,63 @@
-# Welcome to your Expo app 👋
+# 管账人
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+个人收入记账应用，支持手动记账和微信账单导入。基于 Expo SDK 56 + React Native 0.85，支持 Android、iOS 和 Web。
 
-## Get started
+## 功能
 
-1. Install dependencies
+- **收入记录** — 手动添加收入，支持分类、备注、日期
+- **微信账单导入** — 支持 CSV / XLSX 微信账单文件导入，自动去重归类
+- **分类管理** — 预置系统分类（工资、红包、转账等），支持自定义
+- **数据报表** — 按分类、渠道、来源、日期等维度汇总分析
+- **暗色模式** — 跟随系统自动切换亮色/暗色主题
 
-   ```bash
-   npm install
-   ```
+## 技术栈
 
-2. Start the app
+| 类别 | 技术 |
+|------|------|
+| 框架 | Expo SDK 56, React Native 0.85 |
+| 路由 | Expo Router（文件路由） |
+| 语言 | TypeScript 6.0 |
+| 数据库 | expo-sqlite（本地 SQLite, WAL 模式） |
+| 状态管理 | Zustand |
+| 图表 | Victory Native |
+| 动画 | react-native-reanimated |
+| 日期 | date-fns |
+| 解析 | papaparse, xlsx |
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 快速开始
 
 ```bash
-npm run reset-project
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm start
+
+# 在 Android 模拟器中运行
+npm run android
+
+# 在 iOS 模拟器中运行
+npm run ios
+
+# 在浏览器中运行
+npm run web
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 项目结构
 
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+src/
+├── app/                    # Expo Router 页面
+│   ├── (tabs)/             # 四个标签页：首页、账单、报表、设置
+│   ├── add-transaction.tsx # 新增/编辑收入（模态）
+│   ├── csv-import.tsx      # 微信账单导入（模态）
+│   ├── category-manage.tsx # 分类管理（模态）
+│   └── report-detail.tsx   # 对比分析（模态）
+├── components/             # 可复用组件
+├── db/                     # 数据库层（schema、repo、查询）
+├── store/                  # Zustand 状态管理
+├── types/                  # TypeScript 类型定义
+├── utils/                  # 工具函数
+├── hooks/                  # 自定义 hooks
+└── constants/              # 常量（主题颜色、字体等）
+```
