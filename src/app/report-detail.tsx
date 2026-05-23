@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { createReportQueries } from '@/db/report-queries';
 import {
   getMonthRange, getQuarterRange, getYearRange,
-  getPreviousPeriod, getPeriodLabel,
+  getPreviousPeriod, getNextPeriod, getPeriodLabel,
 } from '@/utils/date-utils';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -28,6 +28,7 @@ export default function ReportDetailScreen() {
   const [comparison, setComparison] = useState<ComparisonData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [hasData, setHasData] = useState(false);
+  const [canGoNext, setCanGoNext] = useState(false);
 
   const getRange = useCallback((type: ReportType, date: string) => {
     const d = new Date(date + 'T00:00:00');
@@ -43,18 +44,21 @@ export default function ReportDetailScreen() {
       const reportQueries = createReportQueries(db);
       const range = getRange(reportType, refDate);
       const prevRange = getPreviousPeriod(range, reportType);
+      const nextRange = getNextPeriod(range, reportType);
 
-      const [current, previous, currentByCat, previousByCat] = await Promise.all([
+      const [current, previous, currentByCat, previousByCat, nextTotal] = await Promise.all([
         reportQueries.totalIncome(range.start, range.end),
         reportQueries.totalIncome(prevRange.start, prevRange.end),
         reportQueries.incomeByCategory(range.start, range.end),
         reportQueries.incomeByCategory(prevRange.start, prevRange.end),
+        reportQueries.totalIncome(nextRange.start, nextRange.end),
       ]);
 
       const change = previous.total > 0 ? (current.total - previous.total) / previous.total : 0;
 
       setComparison({ current, previous, change, currentByCategory: currentByCat, previousByCategory: previousByCat });
       setHasData(current.count > 0 || previous.count > 0);
+      setCanGoNext(nextTotal.count > 0);
     } catch (err) {
       console.error('Failed to load comparison:', err);
     }
@@ -84,7 +88,7 @@ export default function ReportDetailScreen() {
 
   const handleNext = () => {
     const range = getRange(reportType, refDate);
-    const next = getPreviousPeriod(range, reportType); // no real "next" in comparison mode
+    const next = getNextPeriod(range, reportType);
     setRefDate(next.start);
   };
 
@@ -108,7 +112,7 @@ export default function ReportDetailScreen() {
           }}
           onPrev={handlePrev}
           onNext={handleNext}
-          hasNext={false}
+          hasNext={canGoNext}
         />
 
         <ScrollView

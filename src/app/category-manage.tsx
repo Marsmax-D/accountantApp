@@ -117,6 +117,8 @@ export default function CategoryManageScreen() {
                   {cat.is_system ? '系统分类' : '自定义'}
                   {' · '}
                   {cat.source === 'wechat' ? '微信导入' : cat.source === 'manual' ? '手动' : '通用'}
+                  {' · '}
+                  {cat.channel === 'online' ? '线上' : '线下'}
                 </ThemedText>
               </View>
               {!cat.is_system && (

@@ -6,6 +6,7 @@ import {
   type DailyTotal,
   type MonthlyTotal,
   type SourceBreakdown,
+  type ChannelBreakdown,
 } from '@/types/report';
 
 export function createReportQueries(db: SQLiteDatabase) {
@@ -29,6 +30,10 @@ export function createReportQueries(db: SQLiteDatabase) {
 
     async incomeBySource(dateFrom: string, dateTo: string): Promise<SourceBreakdown[]> {
       return await db.getAllAsync<SourceBreakdown>(REPORT_QUERIES.incomeBySource, dateFrom, dateTo);
+    },
+
+    async incomeByChannel(dateFrom: string, dateTo: string): Promise<ChannelBreakdown[]> {
+      return await db.getAllAsync<ChannelBreakdown>(REPORT_QUERIES.incomeByChannel, dateFrom, dateTo);
     },
   };
 }

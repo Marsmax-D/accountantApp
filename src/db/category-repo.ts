@@ -29,15 +29,17 @@ export function createCategoryRepo(db: SQLiteDatabase) {
       source: 'wechat' | 'manual' | 'both';
       icon?: string;
       color?: string;
+      channel?: 'online' | 'offline';
     }): Promise<number> {
       const result = await db.runAsync(
-        `INSERT INTO categories (name, type, source, icon, color, sort_order, is_system)
-         VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories), 0)`,
+        `INSERT INTO categories (name, type, source, icon, color, sort_order, is_system, channel)
+         VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories), 0, ?)`,
         category.name,
         category.type,
         category.source,
         category.icon ?? null,
-        category.color ?? null
+        category.color ?? null,
+        category.channel ?? 'online'
       );
       return result.lastInsertRowId;
     },
@@ -47,6 +49,7 @@ export function createCategoryRepo(db: SQLiteDatabase) {
       icon?: string;
       color?: string;
       source?: 'wechat' | 'manual' | 'both';
+      channel?: 'online' | 'offline';
     }): Promise<void> {
       const fields: string[] = [];
       const params: any[] = [];
@@ -55,6 +58,7 @@ export function createCategoryRepo(db: SQLiteDatabase) {
       if (updates.icon !== undefined) { fields.push('icon = ?'); params.push(updates.icon); }
       if (updates.color !== undefined) { fields.push('color = ?'); params.push(updates.color); }
       if (updates.source !== undefined) { fields.push('source = ?'); params.push(updates.source); }
+      if (updates.channel !== undefined) { fields.push('channel = ?'); params.push(updates.channel); }
 
       if (fields.length === 0) return;
       params.push(id);

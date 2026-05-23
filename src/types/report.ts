@@ -27,6 +27,12 @@ export interface SourceBreakdown {
   count: number;
 }
 
+export interface ChannelBreakdown {
+  channel: 'online' | 'offline';
+  total: number;
+  count: number;
+}
+
 export interface ComparisonData {
   current: ReportSummary;
   previous: ReportSummary;

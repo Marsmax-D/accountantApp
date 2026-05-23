@@ -18,6 +18,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { createTransactionRepo } from '@/db/transaction-repo';
 import { parseWeChatCsv } from '@/utils/wechat-csv-parser';
+import { parseWeChatXlsx } from '@/utils/wechat-xlsx-parser';
 import { deduplicate, categorizeWeChatTransaction } from '@/utils/dedup';
 import { formatCurrency } from '@/utils/format';
 import { type CsvParseResult } from '@/types/csv';
@@ -38,7 +39,12 @@ export default function CsvImportScreen() {
   const handlePickFile = useCallback(async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/csv', 'text/comma-separated-values', 'application/vnd.ms-excel'],
+        type: [
+          'text/csv',
+          'text/comma-separated-values',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ],
         copyToCacheDirectory: true,
       });
 
@@ -48,7 +54,8 @@ export default function CsvImportScreen() {
       if (!file?.uri) return;
 
       setStep('parsing');
-      const parsed = await parseWeChatCsv(file.uri);
+      const isXlsx = file.name?.toLowerCase().endsWith('.xlsx') || file.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const parsed = isXlsx ? await parseWeChatXlsx(file.uri) : await parseWeChatCsv(file.uri);
       setParseResult(parsed);
 
       if (!parsed.success) {
@@ -135,7 +142,7 @@ export default function CsvImportScreen() {
               <ThemedText style={styles.stepTitle}>选择微信账单文件</ThemedText>
               <ThemedText style={styles.stepDesc}>
                 在微信中：我 → 服务 → 钱包 → 账单 → 右上角"..." → 下载账单 → 用于个人对账
-                {'\n\n'}导出的 CSV 文件将通过邮件发送，请下载到手机后选择导入。
+                {'\n\n'}导出的文件将通过邮件发送（支持 CSV 和 XLSX 格式），请下载到手机后选择导入。
               </ThemedText>
               <Pressable
                 style={({ pressed }) => [
@@ -146,7 +153,7 @@ export default function CsvImportScreen() {
                 onPress={handlePickFile}
               >
                 <ThemedText style={[styles.primaryButtonText, { color: theme.background }]}>
-                  选择 CSV 文件
+                  选择账单文件
                 </ThemedText>
               </Pressable>
             </View>

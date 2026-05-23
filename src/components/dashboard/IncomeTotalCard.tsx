@@ -9,9 +9,10 @@ interface Props {
   count: number;
   previousTotal: number;
   periodLabel: string;
+  comparisonLabel?: string;
 }
 
-export function IncomeTotalCard({ total, count, previousTotal, periodLabel }: Props) {
+export function IncomeTotalCard({ total, count, previousTotal, periodLabel, comparisonLabel = '较上月' }: Props) {
   const theme = useTheme();
   const change = previousTotal > 0 ? (total - previousTotal) / previousTotal : 0;
   const isUp = change >= 0;
@@ -23,7 +24,7 @@ export function IncomeTotalCard({ total, count, previousTotal, periodLabel }: Pr
       <View style={styles.row}>
         <View style={[styles.changeBadge, { backgroundColor: isUp ? '#E8F5E9' : '#FFEBEE' }]}>
           <ThemedText style={[styles.changeText, { color: isUp ? '#2E7D32' : '#C62828' }]}>
-            {formatPercent(change)} 较上月
+            {formatPercent(change)} {comparisonLabel}
           </ThemedText>
         </View>
         <ThemedText style={styles.count}>共 {count} 笔</ThemedText>

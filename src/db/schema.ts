@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS categories (
   color       TEXT,
   sort_order  INTEGER NOT NULL DEFAULT 0,
   is_system   INTEGER NOT NULL DEFAULT 0,
+  channel     TEXT    NOT NULL DEFAULT 'online' CHECK(channel IN ('online', 'offline')),
   created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
@@ -36,15 +37,15 @@ CREATE INDEX IF NOT EXISTS idx_transactions_source    ON transactions(source);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_order_id
   ON transactions(order_id) WHERE order_id IS NOT NULL;
 
-INSERT OR IGNORE INTO categories (id, name, type, source, icon, color, sort_order, is_system) VALUES
-(1,  '工资',         'income', 'manual', 'briefcase',          '#4CAF50', 1, 1),
-(2,  '奖金',         'income', 'manual', 'gift',               '#FF9800', 2, 1),
-(3,  '微信转账',     'income', 'wechat', 'arrow.left.arrow.right', '#07C160', 3, 1),
-(4,  '微信红包',     'income', 'wechat', 'gift',               '#FF5252', 4, 1),
-(5,  '微信商户收款', 'income', 'wechat', 'building.store',     '#2196F3', 5, 1),
-(6,  '现金收入',     'income', 'manual', 'dollarsign.circle',  '#9C27B0', 6, 1),
-(7,  '投资收入',     'income', 'manual', 'chart.line.uptrend.xyaxis', '#00BCD4', 7, 1),
-(8,  '其他收入',     'income', 'both',   'ellipsis.circle',    '#607D8B', 8, 1);
+INSERT OR IGNORE INTO categories (id, name, type, source, icon, color, sort_order, is_system, channel) VALUES
+(1,  '工资',         'income', 'manual', 'briefcase',              '#4CAF50', 1, 1, 'online'),
+(2,  '奖金',         'income', 'manual', 'gift',                   '#FF9800', 2, 1, 'online'),
+(3,  '微信转账',     'income', 'wechat', 'arrow.left.arrow.right', '#07C160', 3, 1, 'online'),
+(4,  '微信红包',     'income', 'wechat', 'gift',                   '#FF5252', 4, 1, 'online'),
+(5,  '微信商户收款', 'income', 'wechat', 'building.store',         '#2196F3', 5, 1, 'online'),
+(6,  '现金收入',     'income', 'manual', 'dollarsign.circle',      '#9C27B0', 6, 1, 'offline'),
+(7,  '投资收入',     'income', 'manual', 'chart.line.uptrend.xyaxis', '#00BCD4', 7, 1, 'online'),
+(8,  '其他收入',     'income', 'both',   'ellipsis.circle',        '#607D8B', 8, 1, 'online');
 `;
 
 export const REPORT_QUERIES = {
@@ -71,6 +72,14 @@ export const REPORT_QUERIES = {
     WHERE type = 'income' AND date >= ? AND date <= ?
     GROUP BY month
     ORDER BY month ASC
+  `,
+
+  incomeByChannel: `
+    SELECT c.channel, SUM(t.amount) as total, COUNT(*) as count
+    FROM transactions t
+    JOIN categories c ON t.category_id = c.id
+    WHERE t.type = 'income' AND t.date >= ? AND t.date <= ?
+    GROUP BY c.channel
   `,
 
   incomeBySource: `

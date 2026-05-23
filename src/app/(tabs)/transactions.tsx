@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, RefreshControl, SectionList, Pressable, View, Alert } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createTransactionRepo } from '@/db/transaction-repo';
+import { createReportQueries } from '@/db/report-queries';
 import { formatCurrency, formatRelativeDate } from '@/utils/format';
 import { useUIStore } from '@/store/use-ui-store';
 import { ThemedText } from '@/components/themed-text';
@@ -27,6 +28,8 @@ export default function TransactionsScreen() {
   const [sections, setSections] = useState<Section[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [hasData, setHasData] = useState(false);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<TransactionWithCategory | null>(null);
 
   const { filterDateFrom, filterDateTo, searchQuery } = useUIStore();
@@ -34,12 +37,23 @@ export default function TransactionsScreen() {
   const loadData = useCallback(async () => {
     try {
       const txRepo = createTransactionRepo(db);
-      const transactions = await txRepo.getAll({
-        dateFrom: filterDateFrom ?? undefined,
-        dateTo: filterDateTo ?? undefined,
-        searchQuery: searchQuery || undefined,
-        limit: 200,
-      });
+      const reportQueries = createReportQueries(db);
+
+      const [transactions, incomeTotal] = await Promise.all([
+        txRepo.getAll({
+          dateFrom: filterDateFrom ?? undefined,
+          dateTo: filterDateTo ?? undefined,
+          searchQuery: searchQuery || undefined,
+          limit: 200,
+        }),
+        reportQueries.totalIncome(
+          filterDateFrom ?? '2000-01-01',
+          filterDateTo ?? '2099-12-31',
+        ),
+      ]);
+
+      setTotalAmount(incomeTotal.total);
+      setTotalCount(incomeTotal.count);
 
       if (transactions.length === 0) {
         setSections([]);
@@ -74,9 +88,11 @@ export default function TransactionsScreen() {
     }
   }, [db, filterDateFrom, filterDateTo, searchQuery]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   // Re-fetch when filter params change
   useEffect(() => {
@@ -108,6 +124,11 @@ export default function TransactionsScreen() {
         <ThemedText style={styles.pageTitle}>账单</ThemedText>
         <FilterBar />
 
+        <ThemedView style={styles.totalRow}>
+          <ThemedText style={styles.totalAmount}>{formatCurrency(totalAmount)}</ThemedText>
+          <ThemedText style={styles.totalCount}>共 {totalCount} 笔</ThemedText>
+        </ThemedView>
+
         {!hasData ? (
           <EmptyState
             icon="📄"
@@ -127,6 +148,7 @@ export default function TransactionsScreen() {
             renderItem={({ item }) => (
               <Pressable
                 style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
+                onPress={() => router.push(`/add-transaction?id=${item.id}`)}
                 onLongPress={() => setDeleteTarget(item)}
               >
                 <View style={[styles.dot, { backgroundColor: item.category_color ?? '#999' }]} />
@@ -173,9 +195,25 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 28,
     fontWeight: '700',
+    lineHeight: 40,
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 4,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 10,
+  },
+  totalAmount: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  totalCount: {
+    fontSize: 13,
+    opacity: 0.5,
   },
   sectionHeader: {
     paddingHorizontal: 16,

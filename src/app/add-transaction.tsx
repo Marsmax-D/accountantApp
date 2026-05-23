@@ -10,8 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { createTransactionRepo } from '@/db/transaction-repo';
 import { createCategoryRepo } from '@/db/category-repo';
@@ -20,12 +21,14 @@ import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CategoryPicker } from '@/components/common/CategoryPicker';
-import { type Category } from '@/types/transaction';
+import { type Category, type TransactionWithCategory } from '@/types/transaction';
 
 export default function AddTransactionScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useTheme();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const isEditing = !!id;
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [amount, setAmount] = useState('');
@@ -34,11 +37,42 @@ export default function AddTransactionScreen() {
   const [note, setNote] = useState('');
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+
+  const dateObj = new Date(date + 'T00:00:00');
 
   useEffect(() => {
     const repo = createCategoryRepo(db);
-    repo.getIncomeCategories().then(setCategories);
-  }, [db]);
+    repo.getIncomeCategories().then((cats) => {
+      setCategories(cats);
+      // 默认选中"微信商户收款"(id=5)
+      const defaultCat = cats.find((c) => c.id === 5);
+      if (defaultCat && !id) {
+        setSelectedCategory(defaultCat);
+      }
+    });
+  }, [db, id]);
+
+  // Edit mode: load existing transaction
+  useEffect(() => {
+    if (!id) return;
+    setLoadingEdit(true);
+    const txRepo = createTransactionRepo(db);
+    txRepo.getById(parseInt(id)).then((tx) => {
+      if (tx) {
+        setAmount(String(tx.amount));
+        setDate(tx.date);
+        setNote(tx.note ?? '');
+        // find matching category
+        const catRepo = createCategoryRepo(db);
+        catRepo.getIncomeCategories().then((cats) => {
+          const cat = cats.find((c) => c.id === tx.category_id);
+          if (cat) setSelectedCategory(cat);
+        });
+      }
+    }).finally(() => setLoadingEdit(false));
+  }, [db, id]);
 
   const canSave = amount.trim().length > 0 && parseFloat(amount) > 0 && selectedCategory !== null;
 
@@ -48,23 +82,39 @@ export default function AddTransactionScreen() {
     setSaving(true);
     try {
       const txRepo = createTransactionRepo(db);
-      await txRepo.insert({
-        amount: parseFloat(amount),
-        type: 'income',
-        category_id: selectedCategory!.id,
-        source: 'manual',
-        date,
-        note: note.trim() || undefined,
-      });
+      if (isEditing && id) {
+        await txRepo.update(parseInt(id), {
+          amount: parseFloat(amount),
+          category_id: selectedCategory!.id,
+          date,
+          note: note.trim() || null,
+        });
+      } else {
+        await txRepo.insert({
+          amount: parseFloat(amount),
+          type: 'income',
+          category_id: selectedCategory!.id,
+          source: 'manual',
+          date,
+          note: note.trim() || undefined,
+        });
+      }
       router.back();
     } catch (err) {
       Alert.alert('保存失败', '请稍后重试');
     } finally {
       setSaving(false);
     }
-  }, [amount, selectedCategory, date, note, db, canSave, saving, router]);
+  }, [amount, selectedCategory, date, note, db, canSave, saving, router, isEditing, id]);
 
   const dateStr = `${date.slice(0, 4)}年${parseInt(date.slice(5, 7))}月${parseInt(date.slice(8, 10))}日`;
+
+  const handleDateChange = (_event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDate(toDateString(selectedDate));
+    }
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -77,7 +127,7 @@ export default function AddTransactionScreen() {
             <Pressable onPress={() => router.back()}>
               <ThemedText style={styles.cancel}>取消</ThemedText>
             </Pressable>
-            <ThemedText style={styles.title}>记一笔收入</ThemedText>
+            <ThemedText style={styles.title}>{isEditing ? '编辑收入' : '记一笔收入'}</ThemedText>
             <Pressable
               onPress={handleSave}
               disabled={!canSave || saving}
@@ -103,7 +153,7 @@ export default function AddTransactionScreen() {
                 keyboardType="decimal-pad"
                 value={amount}
                 onChangeText={setAmount}
-                autoFocus
+                autoFocus={!isEditing}
               />
             </View>
 
@@ -126,10 +176,28 @@ export default function AddTransactionScreen() {
               </View>
             </Pressable>
 
-            <View style={styles.fieldRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.fieldRow,
+                pressed && { opacity: 0.6 },
+              ]}
+              onPress={() => setShowDatePicker(true)}
+            >
               <ThemedText style={styles.fieldLabel}>日期</ThemedText>
-              <ThemedText style={styles.fieldText}>{dateStr}</ThemedText>
-            </View>
+              <View style={styles.fieldValue}>
+                <ThemedText style={styles.fieldText}>{dateStr}</ThemedText>
+                <ThemedText style={styles.arrow}>›</ThemedText>
+              </View>
+            </Pressable>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={dateObj}
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+              />
+            )}
 
             <View style={styles.noteSection}>
               <ThemedText style={styles.fieldLabel}>备注</ThemedText>

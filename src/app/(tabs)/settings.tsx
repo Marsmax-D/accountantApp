@@ -30,10 +30,8 @@ export default function SettingsScreen() {
     setCategories(cats);
 
     const txRepo = createTransactionRepo(db);
-    const all = await txRepo.getAll({ limit: 1 });
-    if (all.length > 0) {
-      setTransactionCount(prev => prev + 1); // approximate
-    }
+    const count = await txRepo.count();
+    setTransactionCount(count);
   }, [db]);
 
   useEffect(() => {
@@ -179,7 +177,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ThemedText style={styles.version}>AccounterApp v1.0.0</ThemedText>
+          <ThemedText style={styles.version}>管账人 v1.0.0</ThemedText>
         </View>
       </ScrollView>
 
@@ -206,6 +204,7 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 28,
     fontWeight: '700',
+    lineHeight: 40,
   },
   list: {
     flex: 1,

@@ -18,7 +18,7 @@ export interface InsertTransaction {
   category_id: number;
   source: 'wechat' | 'manual';
   date: string;
-  note?: string;
+  note?: string | null;
   order_id?: string;
   wechat_raw?: string;
 }
@@ -32,6 +32,7 @@ export interface Category {
   color: string | null;
   sort_order: number;
   is_system: number;
+  channel: 'online' | 'offline';
   created_at: string;
 }
 

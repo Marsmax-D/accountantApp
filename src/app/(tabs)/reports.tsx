@@ -16,14 +16,14 @@ import { PeriodSelector } from '@/components/reports/PeriodSelector';
 import { ReportSummaryCard } from '@/components/reports/ReportSummaryCard';
 import { IncomeBarChart } from '@/components/reports/IncomeBarChart';
 import { CategoryBreakdown } from '@/components/reports/CategoryBreakdown';
-import { SourcePieChart } from '@/components/reports/SourcePieChart';
+import { IncomeByChannel } from '@/components/dashboard/IncomeByChannel';
 import { EmptyState } from '@/components/common/EmptyState';
 import {
   type ReportType,
   type ReportSummary,
   type CategoryBreakdown as CategoryBreakdownType,
   type DailyTotal,
-  type SourceBreakdown as SourceBreakdownType,
+  type ChannelBreakdown,
 } from '@/types/report';
 
 export default function ReportsScreen() {
@@ -39,7 +39,7 @@ export default function ReportsScreen() {
   const [prevTotal, setPrevTotal] = useState<ReportSummary>({ total: 0, count: 0 });
   const [byCategory, setByCategory] = useState<CategoryBreakdownType[]>([]);
   const [daily, setDaily] = useState<DailyTotal[]>([]);
-  const [bySource, setBySource] = useState<SourceBreakdownType[]>([]);
+  const [byChannel, setByChannel] = useState<ChannelBreakdown[]>([]);
   const [hasData, setHasData] = useState(false);
   const [canGoNext, setCanGoNext] = useState(false);
 
@@ -58,19 +58,19 @@ export default function ReportsScreen() {
       const range = getRange(reportType, refDate);
       const prevRange = getPreviousPeriod(range, reportType);
 
-      const [totalData, prevTotalData, categoryData, dailyData, sourceData] = await Promise.all([
+      const [totalData, prevTotalData, categoryData, dailyData, channelData] = await Promise.all([
         reportQueries.totalIncome(range.start, range.end),
         reportQueries.totalIncome(prevRange.start, prevRange.end),
         reportQueries.incomeByCategory(range.start, range.end),
         reportQueries.dailyIncome(range.start, range.end),
-        reportQueries.incomeBySource(range.start, range.end),
+        reportQueries.incomeByChannel(range.start, range.end),
       ]);
 
       setTotal(totalData);
       setPrevTotal(prevTotalData);
       setByCategory(categoryData);
       setDaily(dailyData);
-      setBySource(sourceData);
+      setByChannel(channelData);
       setHasData(totalData.count > 0);
 
       // Check if next period has data
@@ -154,8 +154,8 @@ export default function ReportsScreen() {
               <IncomeBarChart data={dailyChartData} title="每日收入趋势" />
             )}
 
-            {bySource.length > 0 && (
-              <SourcePieChart data={bySource} total={total.total} />
+            {byChannel.length > 0 && (
+              <IncomeByChannel data={byChannel} total={total.total} />
             )}
 
             {byCategory.length > 0 && (
@@ -191,6 +191,7 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 28,
     fontWeight: '700',
+    lineHeight: 40,
   },
   compareButton: {
     flexDirection: 'row',

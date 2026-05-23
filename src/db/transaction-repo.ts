@@ -138,6 +138,13 @@ export function createTransactionRepo(db: SQLiteDatabase) {
       await db.runAsync('DELETE FROM transactions WHERE id = ?', id);
     },
 
+    async count(): Promise<number> {
+      const result = await db.getAllAsync<{ cnt: number }>(
+        `SELECT COUNT(*) as cnt FROM transactions WHERE type = 'income'`
+      );
+      return result[0]?.cnt ?? 0;
+    },
+
     async getDateRange(): Promise<{ min: string; max: string } | null> {
       const result = await db.getAllAsync<{ min: string; max: string }>(
         `SELECT MIN(date) as min, MAX(date) as max FROM transactions WHERE type = 'income'`

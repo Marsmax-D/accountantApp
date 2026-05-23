@@ -7,11 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { createTransactionRepo } from '@/db/transaction-repo';
 import { createReportQueries } from '@/db/report-queries';
 import { createCategoryRepo } from '@/db/category-repo';
-import { getCurrentMonthRange, getPreviousPeriod } from '@/utils/date-utils';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedView } from '@/components/themed-view';
 import { IncomeTotalCard } from '@/components/dashboard/IncomeTotalCard';
-import { SourceBreakdown } from '@/components/dashboard/SourceBreakdown';
+import { IncomeByChannel } from '@/components/dashboard/IncomeByChannel';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { DashboardEmptyState } from '@/components/dashboard/DashboardEmptyState';
 import { FloatingActionButton } from '@/components/common/FloatingActionButton';
@@ -19,7 +18,7 @@ import {
   type ReportSummary,
   type CategoryBreakdown,
   type DailyTotal,
-  type SourceBreakdown as SourceBreakdownType,
+  type ChannelBreakdown,
 } from '@/types/report';
 import { type TransactionWithCategory } from '@/types/transaction';
 
@@ -31,30 +30,31 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [total, setTotal] = useState<ReportSummary>({ total: 0, count: 0 });
   const [prevTotal, setPrevTotal] = useState<ReportSummary>({ total: 0, count: 0 });
-  const [bySource, setBySource] = useState<SourceBreakdownType[]>([]);
+  const [byChannel, setByChannel] = useState<ChannelBreakdown[]>([]);
   const [recent, setRecent] = useState<TransactionWithCategory[]>([]);
   const [hasData, setHasData] = useState(false);
 
-  const periodLabel = `${new Date().getFullYear()}年${new Date().getMonth() + 1}月`;
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const yesterday = new Date(now.getTime() - 86400000);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const periodLabel = `${now.getMonth() + 1}月${now.getDate()}日`;
 
   const loadData = useCallback(async () => {
     try {
       const txRepo = createTransactionRepo(db);
       const reportQueries = createReportQueries(db);
 
-      const range = getCurrentMonthRange();
-      const prevRange = getPreviousPeriod(range, 'monthly');
-
-      const [totalData, prevTotalData, sourceData, recentData] = await Promise.all([
-        reportQueries.totalIncome(range.start, range.end),
-        reportQueries.totalIncome(prevRange.start, prevRange.end),
-        reportQueries.incomeBySource(range.start, range.end),
+      const [totalData, prevTotalData, channelData, recentData] = await Promise.all([
+        reportQueries.totalIncome(todayStr, todayStr),
+        reportQueries.totalIncome(yesterdayStr, yesterdayStr),
+        reportQueries.incomeByChannel(todayStr, todayStr),
         txRepo.getRecent(5),
       ]);
 
       setTotal(totalData);
       setPrevTotal(prevTotalData);
-      setBySource(sourceData);
+      setByChannel(channelData);
       setRecent(recentData);
       setHasData(totalData.count > 0 || recentData.length > 0);
     } catch (err) {
@@ -90,8 +90,9 @@ export default function DashboardScreen() {
                 count={total.count}
                 previousTotal={prevTotal.total}
                 periodLabel={periodLabel}
+                comparisonLabel="较昨日"
               />
-              <SourceBreakdown data={bySource} total={total.total} />
+              <IncomeByChannel data={byChannel} total={total.total} />
               <RecentTransactions
                 transactions={recent}
                 onViewAll={() => router.push('/transactions')}
