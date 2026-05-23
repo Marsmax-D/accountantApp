@@ -43,7 +43,7 @@ function TabIcon({ source, focused }: { source: ImageSourcePropType; focused: bo
   );
 }
 
-const HOME_ICON = require('@/assets/images/tabIcons/home.png');
+const HOME_ICON = require('@/assets/images/tabIcons/home_1.png');
 const TRANSACTIONS_ICON = require('@/assets/images/tabIcons/transactions.png');
 const REPORTS_ICON = require('@/assets/images/tabIcons/reports.png');
 const SETTINGS_ICON = require('@/assets/images/tabIcons/settings.png');
