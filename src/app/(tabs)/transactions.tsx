@@ -4,6 +4,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useFamilyStore } from '@/store/use-family-store';
 import { createTransactionRepo } from '@/db/transaction-repo';
 import { createReportQueries } from '@/db/report-queries';
 import { formatCurrency, formatRelativeDate, toDateString } from '@/utils/format';
@@ -87,6 +88,12 @@ export default function TransactionsScreen() {
       console.error('Failed to load transactions:', err);
     }
   }, [db, filterDateFrom, filterDateTo, searchQuery]);
+
+  // 监听同步完成事件，云端数据拉取后自动刷新账单列表
+  const syncVersion = useFamilyStore((s) => s.syncVersion);
+  useEffect(() => {
+    loadData();
+  }, [syncVersion, loadData]);
 
   useFocusEffect(
     useCallback(() => {

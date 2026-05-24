@@ -8,6 +8,10 @@ export interface Transaction {
   note: string | null;
   order_id: string | null;
   wechat_raw: string | null;
+  remote_id: string | null;
+  sync_status: 'synced' | 'pending' | 'conflict';
+  created_by: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +37,9 @@ export interface Category {
   sort_order: number;
   is_system: number;
   channel: 'online' | 'offline';
+  remote_id: string | null;
+  sync_status: 'synced' | 'pending' | 'conflict';
+  deleted_at: string | null;
   created_at: string;
 }
 

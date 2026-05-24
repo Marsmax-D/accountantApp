@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS categories (
   sort_order  INTEGER NOT NULL DEFAULT 0,
   is_system   INTEGER NOT NULL DEFAULT 0,
   channel     TEXT    NOT NULL DEFAULT 'online' CHECK(channel IN ('online', 'offline')),
+  remote_id   TEXT,
+  sync_status TEXT    NOT NULL DEFAULT 'synced' CHECK(sync_status IN ('synced','pending','conflict')),
+  deleted_at  TEXT,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
@@ -25,6 +28,10 @@ CREATE TABLE IF NOT EXISTS transactions (
   note        TEXT,
   order_id    TEXT,
   wechat_raw  TEXT,
+  remote_id   TEXT,
+  sync_status TEXT    NOT NULL DEFAULT 'synced' CHECK(sync_status IN ('synced','pending','conflict')),
+  created_by  TEXT,
+  deleted_at  TEXT,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
   updated_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
@@ -36,6 +43,21 @@ CREATE INDEX IF NOT EXISTS idx_transactions_type      ON transactions(type);
 CREATE INDEX IF NOT EXISTS idx_transactions_source    ON transactions(source);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_order_id
   ON transactions(order_id) WHERE order_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS sync_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sync_operations (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  table_name TEXT    NOT NULL CHECK(table_name IN ('categories','transactions')),
+  local_id   INTEGER NOT NULL,
+  remote_id  TEXT,
+  operation  TEXT    NOT NULL CHECK(operation IN ('INSERT','UPDATE','DELETE')),
+  payload    TEXT    NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+);
 
 INSERT OR IGNORE INTO categories (id, name, type, source, icon, color, sort_order, is_system, channel) VALUES
 (1,  '工资',         'income', 'manual', 'briefcase',              '#4CAF50', 1, 1, 'online'),
@@ -53,7 +75,7 @@ export const REPORT_QUERIES = {
     SELECT c.name, c.color, c.icon, SUM(t.amount) as total, COUNT(*) as count
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
-    WHERE t.type = 'income' AND t.date >= ? AND t.date <= ?
+    WHERE t.type = 'income' AND t.date >= ? AND t.date <= ? AND t.deleted_at IS NULL
     GROUP BY t.category_id
     ORDER BY total DESC
   `,
@@ -61,7 +83,7 @@ export const REPORT_QUERIES = {
   dailyIncome: `
     SELECT date, SUM(amount) as total
     FROM transactions
-    WHERE type = 'income' AND date >= ? AND date <= ?
+    WHERE type = 'income' AND date >= ? AND date <= ? AND deleted_at IS NULL
     GROUP BY date
     ORDER BY date ASC
   `,
@@ -69,7 +91,7 @@ export const REPORT_QUERIES = {
   monthlyIncome: `
     SELECT substr(date, 1, 7) as month, SUM(amount) as total
     FROM transactions
-    WHERE type = 'income' AND date >= ? AND date <= ?
+    WHERE type = 'income' AND date >= ? AND date <= ? AND deleted_at IS NULL
     GROUP BY month
     ORDER BY month ASC
   `,
@@ -78,27 +100,28 @@ export const REPORT_QUERIES = {
     SELECT c.channel, SUM(t.amount) as total, COUNT(*) as count
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
-    WHERE t.type = 'income' AND t.date >= ? AND t.date <= ?
+    WHERE t.type = 'income' AND t.date >= ? AND t.date <= ? AND t.deleted_at IS NULL
     GROUP BY c.channel
   `,
 
   incomeBySource: `
     SELECT source, SUM(amount) as total, COUNT(*) as count
     FROM transactions
-    WHERE type = 'income' AND date >= ? AND date <= ?
+    WHERE type = 'income' AND date >= ? AND date <= ? AND deleted_at IS NULL
     GROUP BY source
   `,
 
   totalIncome: `
     SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
     FROM transactions
-    WHERE type = 'income' AND date >= ? AND date <= ?
+    WHERE type = 'income' AND date >= ? AND date <= ? AND deleted_at IS NULL
   `,
 
   recentTransactions: `
     SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
+    WHERE t.deleted_at IS NULL
     ORDER BY t.date DESC, t.id DESC
     LIMIT ?
   `,
@@ -107,7 +130,7 @@ export const REPORT_QUERIES = {
     SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
-    WHERE t.date >= ? AND t.date <= ?
+    WHERE t.date >= ? AND t.date <= ? AND t.deleted_at IS NULL
     ORDER BY t.date DESC, t.id DESC
   `,
 
@@ -117,6 +140,7 @@ export const REPORT_QUERIES = {
     JOIN categories c ON t.category_id = c.id
     WHERE t.type = 'income'
       AND t.date >= ? AND t.date <= ?
+      AND t.deleted_at IS NULL
       AND (t.note LIKE ? OR c.name LIKE ?)
     ORDER BY t.date DESC, t.id DESC
   `,

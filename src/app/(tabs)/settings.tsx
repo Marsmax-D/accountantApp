@@ -96,6 +96,13 @@ export default function SettingsScreen() {
 
   const settingsItems = [
     {
+      icon: '👨‍👩‍👧',
+      title: '家庭账单',
+      subtitle: '创建或加入家庭，与朋友共享账本',
+      action: () => router.push('/family' as any),
+      badge: null as string | null,
+    },
+    {
       icon: '📥',
       title: '导入微信账单',
       subtitle: '从微信导出的 CSV 文件中导入收入数据',

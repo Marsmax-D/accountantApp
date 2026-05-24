@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useFamilyStore } from '@/store/use-family-store';
 import { createTransactionRepo } from '@/db/transaction-repo';
 import { createReportQueries } from '@/db/report-queries';
 import { createCategoryRepo } from '@/db/category-repo';
@@ -62,6 +63,12 @@ export default function DashboardScreen() {
       console.error('Failed to load dashboard data:', err);
     }
   }, [db]);
+
+  // 监听同步完成事件，云端数据拉取后自动刷新首页
+  const syncVersion = useFamilyStore((s) => s.syncVersion);
+  useEffect(() => {
+    loadData();
+  }, [syncVersion, loadData]);
 
   useFocusEffect(
     useCallback(() => {

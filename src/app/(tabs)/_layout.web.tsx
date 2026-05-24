@@ -9,6 +9,7 @@ const TABS = [
   { name: 'index', label: '首页', icon: '🏠' },
   { name: 'transactions', label: '账单', icon: '📋' },
   { name: 'reports', label: '报表', icon: '📊' },
+  { name: 'family', label: '家庭', icon: '👨‍👩‍👧' },
   { name: 'settings', label: '设置', icon: '⚙️' },
 ] as const;
 

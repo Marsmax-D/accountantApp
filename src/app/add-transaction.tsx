@@ -16,12 +16,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { createTransactionRepo } from '@/db/transaction-repo';
 import { createCategoryRepo } from '@/db/category-repo';
+import { getSyncContext, pushChanges } from '@/sync/sync-engine';
 import { toDateString } from '@/utils/format';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CategoryPicker } from '@/components/common/CategoryPicker';
 import { type Category, type TransactionWithCategory } from '@/types/transaction';
+import { type SyncContext } from '@/db/transaction-repo';
 
 export default function AddTransactionScreen() {
   const db = useSQLiteContext();
@@ -81,7 +83,8 @@ export default function AddTransactionScreen() {
 
     setSaving(true);
     try {
-      const txRepo = createTransactionRepo(db);
+      const syncCtx = await getSyncContext(db);
+      const txRepo = createTransactionRepo(db, syncCtx);
       if (isEditing && id) {
         await txRepo.update(parseInt(id), {
           amount: parseFloat(amount),
@@ -99,6 +102,8 @@ export default function AddTransactionScreen() {
           note: note.trim() || undefined,
         });
       }
+      // 有家庭同步时立即推送，不阻塞 UI
+      pushChanges(db).catch(() => {});
       router.back();
     } catch (err) {
       Alert.alert('保存失败', '请稍后重试');

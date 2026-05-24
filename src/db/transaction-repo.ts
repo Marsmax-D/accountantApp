@@ -1,12 +1,41 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
 import { type InsertTransaction, type TransactionWithCategory } from '@/types/transaction';
 
-export function createTransactionRepo(db: SQLiteDatabase) {
+export interface SyncContext {
+  familyId: string;
+  userId: string;
+}
+
+export function createTransactionRepo(db: SQLiteDatabase, sync?: SyncContext) {
+  function generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+  async function recordSyncOp(
+    tableName: string,
+    localId: number,
+    remoteId: string | null,
+    operation: 'INSERT' | 'UPDATE' | 'DELETE',
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    if (!sync) return;
+    await db.runAsync(
+      `INSERT INTO sync_operations (table_name, local_id, remote_id, operation, payload)
+       VALUES (?, ?, ?, ?, ?)`,
+      tableName, localId, remoteId, operation, JSON.stringify(payload)
+    );
+  }
+
   return {
     async insert(tx: InsertTransaction): Promise<number> {
+      const remoteId = sync ? generateUUID() : null;
       const result = await db.runAsync(
-        `INSERT INTO transactions (amount, type, category_id, source, date, note, order_id, wechat_raw)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO transactions (amount, type, category_id, source, date, note, order_id, wechat_raw, remote_id, sync_status, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         tx.amount,
         tx.type,
         tx.category_id,
@@ -14,9 +43,22 @@ export function createTransactionRepo(db: SQLiteDatabase) {
         tx.date,
         tx.note ?? null,
         tx.order_id ?? null,
-        tx.wechat_raw ?? null
+        tx.wechat_raw ?? null,
+        remoteId,
+        sync ? 'pending' : 'synced',
+        sync?.userId ?? null
       );
-      return result.lastInsertRowId;
+      const localId = result.lastInsertRowId;
+      if (sync && remoteId) {
+        const payload: Record<string, unknown> = {
+          amount: tx.amount, type: tx.type, category_id: tx.category_id,
+          source: tx.source, date: tx.date, note: tx.note ?? null,
+          order_id: tx.order_id ?? null, wechat_raw: tx.wechat_raw ?? null,
+          remote_id: remoteId, created_by: sync.userId,
+        };
+        await recordSyncOp('transactions', localId, remoteId, 'INSERT', payload);
+      }
+      return localId;
     },
 
     async bulkInsert(transactions: InsertTransaction[]): Promise<number> {
@@ -45,7 +87,7 @@ export function createTransactionRepo(db: SQLiteDatabase) {
         SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
         FROM transactions t
         JOIN categories c ON t.category_id = c.id
-        WHERE t.type = 'income'
+        WHERE t.type = 'income' AND t.deleted_at IS NULL
       `;
       const params: any[] = [];
 
@@ -89,7 +131,7 @@ export function createTransactionRepo(db: SQLiteDatabase) {
         `SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
          FROM transactions t
          JOIN categories c ON t.category_id = c.id
-         WHERE t.type = 'income'
+         WHERE t.type = 'income' AND t.deleted_at IS NULL
          ORDER BY t.date DESC, t.id DESC
          LIMIT ?`,
         limit
@@ -101,8 +143,19 @@ export function createTransactionRepo(db: SQLiteDatabase) {
         `SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
          FROM transactions t
          JOIN categories c ON t.category_id = c.id
-         WHERE t.id = ?`,
+         WHERE t.id = ? AND t.deleted_at IS NULL`,
         id
+      );
+      return result[0] ?? null;
+    },
+
+    async getByRemoteId(remoteId: string): Promise<TransactionWithCategory | null> {
+      const result = await db.getAllAsync<TransactionWithCategory>(
+        `SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
+         FROM transactions t
+         JOIN categories c ON t.category_id = c.id
+         WHERE t.remote_id = ?`,
+        remoteId
       );
       return result[0] ?? null;
     },
@@ -125,6 +178,9 @@ export function createTransactionRepo(db: SQLiteDatabase) {
 
       if (fields.length === 0) return;
 
+      if (sync) {
+        fields.push("sync_status = 'pending'");
+      }
       fields.push("updated_at = datetime('now', 'localtime')");
       params.push(id);
 
@@ -132,24 +188,106 @@ export function createTransactionRepo(db: SQLiteDatabase) {
         `UPDATE transactions SET ${fields.join(', ')} WHERE id = ?`,
         ...params
       );
+
+      if (sync) {
+        // Get the current record for payload
+        const record = await this.getById(id);
+        if (record) {
+          const { category_name, category_color, category_icon, ...payload } = record as any;
+          await recordSyncOp('transactions', id, record.remote_id, 'UPDATE', payload as Record<string, unknown>);
+        }
+      }
     },
 
     async delete(id: number): Promise<void> {
-      await db.runAsync('DELETE FROM transactions WHERE id = ?', id);
+      // Soft delete — set deleted_at instead of hard DELETE
+      const rows = await db.getAllAsync<{ remote_id: string }>(
+        'SELECT remote_id FROM transactions WHERE id = ?', id
+      );
+      const remoteId = rows[0]?.remote_id || null;
+
+      await db.runAsync(
+        "UPDATE transactions SET deleted_at = datetime('now', 'localtime'), sync_status = ? WHERE id = ?",
+        sync ? 'pending' : 'synced', id
+      );
+
+      if (sync) {
+        await recordSyncOp('transactions', id, remoteId, 'DELETE', { id });
+      }
     },
 
     async count(): Promise<number> {
       const result = await db.getAllAsync<{ cnt: number }>(
-        `SELECT COUNT(*) as cnt FROM transactions WHERE type = 'income'`
+        `SELECT COUNT(*) as cnt FROM transactions WHERE type = 'income' AND deleted_at IS NULL`
       );
       return result[0]?.cnt ?? 0;
     },
 
     async getDateRange(): Promise<{ min: string; max: string } | null> {
       const result = await db.getAllAsync<{ min: string; max: string }>(
-        `SELECT MIN(date) as min, MAX(date) as max FROM transactions WHERE type = 'income'`
+        `SELECT MIN(date) as min, MAX(date) as max FROM transactions WHERE type = 'income' AND deleted_at IS NULL`
       );
       return result[0]?.min ? result[0] : null;
+    },
+
+    async getPendingSync(): Promise<TransactionWithCategory[]> {
+      return await db.getAllAsync(
+        `SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
+         FROM transactions t
+         JOIN categories c ON t.category_id = c.id
+         WHERE t.sync_status = 'pending'`
+      );
+    },
+
+    async upsertFromRemote(record: {
+      remote_id: string;
+      amount: number;
+      type: string;
+      category_id: number;
+      source: string;
+      date: string;
+      note: string | null;
+      order_id: string | null;
+      wechat_raw: string | null;
+      created_by: string;
+      updated_at: string;
+      deleted_at: string | null;
+    }): Promise<void> {
+      const existing = await this.getByRemoteId(record.remote_id);
+      if (existing) {
+        // Update if remote is newer
+        if (record.deleted_at) {
+          await db.runAsync(
+            "UPDATE transactions SET deleted_at = ?, sync_status = 'synced' WHERE remote_id = ?",
+            record.deleted_at, record.remote_id
+          );
+        } else {
+          await db.runAsync(
+            `UPDATE transactions SET amount = ?, category_id = ?, source = ?, date = ?,
+               note = ?, order_id = ?, wechat_raw = ?, sync_status = 'synced'
+             WHERE remote_id = ?`,
+            record.amount, record.category_id, record.source, record.date,
+            record.note, record.order_id, record.wechat_raw, record.remote_id
+          );
+        }
+      } else if (!record.deleted_at) {
+        await db.runAsync(
+          `INSERT INTO transactions (amount, type, category_id, source, date, note, order_id, wechat_raw, remote_id, sync_status, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+          record.amount, record.type, record.category_id, record.source,
+          record.date, record.note, record.order_id, record.wechat_raw,
+          record.remote_id, record.created_by
+        );
+      }
+    },
+
+    async markSynced(ids: number[]): Promise<void> {
+      if (ids.length === 0) return;
+      const placeholders = ids.map(() => '?').join(',');
+      await db.runAsync(
+        `UPDATE transactions SET sync_status = 'synced' WHERE id IN (${placeholders})`,
+        ...ids
+      );
     },
   };
 }

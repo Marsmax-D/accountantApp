@@ -46,6 +46,7 @@ function TabIcon({ source, focused }: { source: ImageSourcePropType; focused: bo
 const HOME_ICON = require('@/assets/images/tabIcons/home_1.png');
 const TRANSACTIONS_ICON = require('@/assets/images/tabIcons/transactions.png');
 const REPORTS_ICON = require('@/assets/images/tabIcons/reports.png');
+const FAMILY_ICON = require('@/assets/images/tabIcons/family.png');
 const SETTINGS_ICON = require('@/assets/images/tabIcons/settings.png');
 
 export default function TabLayout() {
@@ -87,6 +88,13 @@ export default function TabLayout() {
         options={{
           title: '报表',
           tabBarIcon: ({ focused }) => <TabIcon source={REPORTS_ICON} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="family"
+        options={{
+          title: '家庭',
+          tabBarIcon: ({ focused }) => <TabIcon source={FAMILY_ICON} focused={focused} />,
         }}
       />
       <Tabs.Screen

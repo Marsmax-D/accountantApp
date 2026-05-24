@@ -17,6 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { createTransactionRepo } from '@/db/transaction-repo';
+import { getSyncContext, pushChanges } from '@/sync/sync-engine';
 import { parseWeChatCsv } from '@/utils/wechat-csv-parser';
 import { parseWeChatXlsx } from '@/utils/wechat-xlsx-parser';
 import { deduplicate, categorizeWeChatTransaction } from '@/utils/dedup';
@@ -65,7 +66,8 @@ export default function CsvImportScreen() {
       }
 
       // Dedup
-      const txRepo = createTransactionRepo(db);
+      const syncCtx = await getSyncContext(db);
+      const txRepo = createTransactionRepo(db, syncCtx);
       const existingIds = await txRepo.getExistingOrderIds();
       const deduped = deduplicate(parsed.transactions, existingIds);
 
@@ -84,7 +86,8 @@ export default function CsvImportScreen() {
   const handleImport = useCallback(async () => {
     if (!parseResult || !dedupInfo) return;
 
-    const txRepo = createTransactionRepo(db);
+    const syncCtx = await getSyncContext(db);
+    const txRepo = createTransactionRepo(db, syncCtx);
     const existingIds = await txRepo.getExistingOrderIds();
     const deduped = deduplicate(parseResult.transactions, existingIds);
 
@@ -113,10 +116,13 @@ export default function CsvImportScreen() {
       }
       setImportCount(count);
       setStep('done');
+      // 有家庭同步时立即推送，不阻塞 UI
+      pushChanges(db).catch(() => {});
     } catch (err) {
       setImportCount(count);
       Alert.alert('导入部分完成', `已成功导入 ${count} 条记录。部分记录因错误未能导入。`);
       setStep('done');
+      pushChanges(db).catch(() => {});
     }
   }, [db, parseResult, dedupInfo]);
 
