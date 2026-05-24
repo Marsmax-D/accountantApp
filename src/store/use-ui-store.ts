@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { toDateString } from '@/utils/format';
 import { type ReportType } from '@/types/report';
 
 interface UIState {
@@ -21,7 +22,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   reportType: 'monthly',
-  selectedDate: new Date().toISOString().slice(0, 10),
+  selectedDate: toDateString(new Date()),
   filterDateFrom: null,
   filterDateTo: null,
   filterCategoryId: null,

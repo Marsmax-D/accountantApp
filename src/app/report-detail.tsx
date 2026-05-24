@@ -9,6 +9,7 @@ import {
   getMonthRange, getQuarterRange, getYearRange,
   getPreviousPeriod, getNextPeriod, getPeriodLabel,
 } from '@/utils/date-utils';
+import { toDateString } from '@/utils/format';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { PeriodSelector } from '@/components/reports/PeriodSelector';
@@ -24,7 +25,7 @@ export default function ReportDetailScreen() {
   const router = useRouter();
 
   const [reportType, setReportType] = useState<ReportType>('monthly');
-  const [refDate, setRefDate] = useState(new Date().toISOString().slice(0, 10));
+  const [refDate, setRefDate] = useState(toDateString(new Date()));
   const [comparison, setComparison] = useState<ComparisonData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [hasData, setHasData] = useState(false);
@@ -108,7 +109,7 @@ export default function ReportDetailScreen() {
           periodLabel={periodLabel}
           onTypeChange={(type) => {
             setReportType(type);
-            setRefDate(new Date().toISOString().slice(0, 10));
+            setRefDate(toDateString(new Date()));
           }}
           onPrev={handlePrev}
           onNext={handleNext}

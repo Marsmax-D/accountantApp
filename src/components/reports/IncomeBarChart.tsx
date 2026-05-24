@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, View, Pressable } from 'react-native';
 import Svg, { Rect, Line, Text as SvgText, G } from 'react-native-svg';
 import { useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
@@ -20,6 +21,7 @@ interface Props {
 export function IncomeBarChart({ data, title, height = 180 }: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   if (data.length === 0) return null;
 
@@ -27,9 +29,25 @@ export function IncomeBarChart({ data, title, height = 180 }: Props) {
   const barWidth = Math.max(8, Math.min(28, (300 - 40) / data.length - 4));
   const chartWidth = Math.max(300, data.length * (barWidth + 6) + 40);
 
+  const selectedData = selectedIndex !== null ? data[selectedIndex] : null;
+
   return (
     <ThemedView style={styles.card}>
       {title && <ThemedText style={styles.title}>{title}</ThemedText>}
+
+      {selectedData && (
+        <View style={styles.tooltip}>
+          <ThemedText style={styles.tooltipLabel}>{selectedData.label}</ThemedText>
+          <ThemedText style={styles.tooltipValue}>{formatCurrency(selectedData.value)}</ThemedText>
+          <Pressable
+            style={styles.tooltipClose}
+            onPress={() => setSelectedIndex(null)}
+          >
+            <ThemedText style={styles.tooltipCloseText}>✕</ThemedText>
+          </Pressable>
+        </View>
+      )}
+
       <View style={styles.chartWrapper}>
         <Svg width={chartWidth} height={height}>
           {[0.25, 0.5, 0.75].map((ratio, i) => (
@@ -57,6 +75,7 @@ export function IncomeBarChart({ data, title, height = 180 }: Props) {
             const barH = (d.value / maxValue) * (height - 35);
             const x = 36 + i * (barWidth + 6);
             const y = height - 22 - barH;
+            const isSelected = selectedIndex === i;
             return (
               <G key={i}>
                 <Rect
@@ -65,8 +84,9 @@ export function IncomeBarChart({ data, title, height = 180 }: Props) {
                   width={barWidth}
                   height={barH}
                   rx={3}
-                  fill="#4CAF50"
-                  opacity={0.8}
+                  fill={isSelected ? '#2E7D32' : '#4CAF50'}
+                  opacity={isSelected ? 1 : 0.8}
+                  onPress={() => setSelectedIndex(isSelected ? null : i)}
                 />
                 {(data.length <= 15 || i % 3 === 0) && (
                   <SvgText
@@ -102,5 +122,33 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     overflow: 'scroll',
+  },
+  tooltip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 8,
+  },
+  tooltipLabel: {
+    fontSize: 13,
+    opacity: 0.7,
+  },
+  tooltipValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+  tooltipClose: {
+    marginLeft: 4,
+    padding: 2,
+  },
+  tooltipCloseText: {
+    fontSize: 12,
+    opacity: 0.5,
   },
 });

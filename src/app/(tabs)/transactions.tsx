@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createTransactionRepo } from '@/db/transaction-repo';
 import { createReportQueries } from '@/db/report-queries';
-import { formatCurrency, formatRelativeDate } from '@/utils/format';
+import { formatCurrency, formatRelativeDate, toDateString } from '@/utils/format';
 import { useUIStore } from '@/store/use-ui-store';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -70,8 +70,8 @@ export default function TransactionsScreen() {
       }
 
       const now = new Date();
-      const todayStr = now.toISOString().slice(0, 10);
-      const yesterdayStr = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
+      const todayStr = toDateString(now);
+      const yesterdayStr = toDateString(new Date(now.getTime() - 86400000));
 
       const sectionList: Section[] = Object.entries(grouped).map(([date, items]) => {
         let title: string;

@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { StyleSheet, ScrollView, RefreshControl, Pressable, View } from 'react-native';
+import { useCallback, useState, useRef } from 'react';
+import { StyleSheet, ScrollView, RefreshControl, Pressable, View, PanResponder } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import {
   getMonthRange, getQuarterRange, getYearRange,
   getPreviousPeriod, getNextPeriod, getPeriodLabel,
 } from '@/utils/date-utils';
+import { toDateString } from '@/utils/format';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { PeriodSelector } from '@/components/reports/PeriodSelector';
@@ -32,7 +33,7 @@ export default function ReportsScreen() {
   const insets = useSafeAreaInsets();
 
   const [reportType, setReportType] = useState<ReportType>('monthly');
-  const [refDate, setRefDate] = useState(new Date().toISOString().slice(0, 10));
+  const [refDate, setRefDate] = useState(toDateString(new Date()));
   const [refreshing, setRefreshing] = useState(false);
 
   const [total, setTotal] = useState<ReportSummary>({ total: 0, count: 0 });
@@ -113,8 +114,36 @@ export default function ReportsScreen() {
     value: d.total,
   }));
 
+  const reportTypes: ReportType[] = ['monthly', 'quarterly', 'yearly'];
+
+  const cycleReportType = useCallback((direction: 'next' | 'prev') => {
+    setReportType((current) => {
+      const idx = reportTypes.indexOf(current);
+      if (direction === 'next') {
+        return reportTypes[(idx + 1) % 3];
+      } else {
+        return reportTypes[(idx + 2) % 3];
+      }
+    });
+    setRefDate(toDateString(new Date()));
+  }, []);
+
+  const panResponder = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      const { dx, dy } = gestureState;
+      return Math.abs(dx) > 20 && Math.abs(dx) > Math.abs(dy) * 1.5;
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dx < -50) {
+        cycleReportType('next');
+      } else if (gestureState.dx > 50) {
+        cycleReportType('prev');
+      }
+    },
+  })).current;
+
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={styles.container} {...panResponder.panHandlers}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <ThemedText style={styles.pageTitle}>报表</ThemedText>
       </View>
@@ -124,7 +153,7 @@ export default function ReportsScreen() {
         periodLabel={periodLabel}
         onTypeChange={(type) => {
           setReportType(type);
-          setRefDate(new Date().toISOString().slice(0, 10));
+          setRefDate(toDateString(new Date()));
         }}
         onPrev={handlePrev}
         onNext={handleNext}

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { createTransactionRepo } from '@/db/transaction-repo';
 import { createReportQueries } from '@/db/report-queries';
 import { createCategoryRepo } from '@/db/category-repo';
+import { toDateString } from '@/utils/format';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedView } from '@/components/themed-view';
 import { IncomeTotalCard } from '@/components/dashboard/IncomeTotalCard';
@@ -35,9 +36,9 @@ export default function DashboardScreen() {
   const [hasData, setHasData] = useState(false);
 
   const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = toDateString(now);
   const yesterday = new Date(now.getTime() - 86400000);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const yesterdayStr = toDateString(yesterday);
   const periodLabel = `${now.getMonth() + 1}月${now.getDate()}日`;
 
   const loadData = useCallback(async () => {
