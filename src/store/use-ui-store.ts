@@ -9,6 +9,7 @@ interface UIState {
   filterDateTo: string | null;
   filterCategoryId: number | null;
   filterSource: string | null;
+  filterType: 'all' | 'income' | 'expense';
   searchQuery: string;
 
   setReportType: (type: ReportType) => void;
@@ -16,6 +17,7 @@ interface UIState {
   setFilterDateRange: (from: string | null, to: string | null) => void;
   setFilterCategoryId: (id: number | null) => void;
   setFilterSource: (source: string | null) => void;
+  setFilterType: (type: 'all' | 'income' | 'expense') => void;
   setSearchQuery: (query: string) => void;
   resetFilters: () => void;
 }
@@ -27,6 +29,7 @@ export const useUIStore = create<UIState>((set) => ({
   filterDateTo: null,
   filterCategoryId: null,
   filterSource: null,
+  filterType: 'all',
   searchQuery: '',
 
   setReportType: (type) => set({ reportType: type }),
@@ -34,12 +37,14 @@ export const useUIStore = create<UIState>((set) => ({
   setFilterDateRange: (from, to) => set({ filterDateFrom: from, filterDateTo: to }),
   setFilterCategoryId: (id) => set({ filterCategoryId: id }),
   setFilterSource: (source) => set({ filterSource: source }),
+  setFilterType: (type) => set({ filterType: type }),
   setSearchQuery: (query) => set({ searchQuery: query }),
   resetFilters: () => set({
     filterDateFrom: null,
     filterDateTo: null,
     filterCategoryId: null,
     filterSource: null,
+    filterType: 'all',
     searchQuery: '',
   }),
 }));

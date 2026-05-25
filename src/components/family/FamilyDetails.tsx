@@ -53,22 +53,24 @@ export function FamilyDetails({
 
   const handleSync = async () => {
     setSyncing(true);
-    try {
-      await onSync();
-    } finally {
-      setSyncing(false);
-    }
+    try { await onSync(); } finally { setSyncing(false); }
   };
 
   return (
     <View style={styles.container}>
       {/* 家庭信息卡片 */}
-      <ThemedView type="backgroundElement" style={styles.card}>
-        <ThemedText style={styles.familyName}>{familyName}</ThemedText>
+      <ThemedView style={styles.card}>
+        <View style={styles.familyHeader}>
+          <ThemedText style={styles.familyIcon}>👨‍👩‍👧‍👦</ThemedText>
+          <View style={{ flex: 1 }}>
+            <ThemedText style={styles.familyName}>{familyName}</ThemedText>
+            <ThemedText style={styles.familyRole}>{ROLE_LABELS[role]}</ThemedText>
+          </View>
+        </View>
 
         <View style={styles.inviteRow}>
           <View style={styles.inviteInfo}>
-            <ThemedText themeColor="textSecondary" style={styles.inviteLabel}>邀请码</ThemedText>
+            <ThemedText style={styles.inviteLabel}>邀请码</ThemedText>
             <ThemedText style={styles.inviteCode}>{inviteCode}</ThemedText>
           </View>
           <Pressable style={styles.shareBtn} onPress={handleShareCode}>
@@ -77,10 +79,10 @@ export function FamilyDetails({
         </View>
       </ThemedView>
 
-      {/* 成员列表卡片 */}
-      <ThemedView type="backgroundElement" style={styles.card}>
+      {/* 成员列表 */}
+      <ThemedView style={styles.card}>
         <ThemedText style={styles.sectionTitle}>成员 ({members.length})</ThemedText>
-        {members.map((m) => (
+        {members.slice(0, 4).map((m) => (
           <View key={m.user_id} style={styles.memberRow}>
             <View style={styles.memberInfo}>
               <View style={[styles.avatar, { backgroundColor: m.role === 'owner' ? '#4CAF50' : '#90A4AE' }]}>
@@ -88,18 +90,15 @@ export function FamilyDetails({
                   {m.nickname.slice(0, 1).toUpperCase()}
                 </ThemedText>
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <View style={styles.nameRow}>
-                  <ThemedText style={styles.memberName}>{m.nickname}</ThemedText>
+                  <ThemedText style={styles.memberName} numberOfLines={1}>{m.nickname}</ThemedText>
                   <View style={[styles.roleBadge, { backgroundColor: m.role === 'owner' ? '#E8F5E9' : '#ECEFF1' }]}>
                     <ThemedText style={[styles.roleText, { color: m.role === 'owner' ? '#2E7D32' : '#607D8B' }]}>
                       {ROLE_LABELS[m.role]}
                     </ThemedText>
                   </View>
                 </View>
-                <ThemedText themeColor="textSecondary" style={styles.joinDate}>
-                  加入于 {m.joined_at?.slice(0, 10) || '-'}
-                </ThemedText>
               </View>
             </View>
             {role === 'owner' && m.role !== 'owner' && (
@@ -111,107 +110,140 @@ export function FamilyDetails({
         ))}
       </ThemedView>
 
-      {/* 同步状态 */}
-      <ThemedView type="backgroundElement" style={styles.card}>
-        <ThemedText style={styles.sectionTitle}>同步</ThemedText>
-        <View style={styles.syncRow}>
-          <ThemedText themeColor="textSecondary">
+      {/* 同步 + 退出 */}
+      <View style={styles.actionRow}>
+        <View style={styles.syncInfo}>
+          <ThemedText style={styles.syncDot} />
+          <ThemedText style={styles.syncText}>
             {lastSyncAt ? `上次同步: ${new Date(lastSyncAt).toLocaleTimeString('zh-CN')}` : '未同步'}
           </ThemedText>
+        </View>
+        <View style={styles.actionBtns}>
           <Pressable
-            style={({ pressed }) => [
-              styles.syncBtn,
-              { backgroundColor: '#2196F3' },
-              pressed && { opacity: 0.7 },
-            ]}
+            style={({ pressed }) => [styles.actionBtn, styles.syncBtn, pressed && { opacity: 0.7 }]}
             onPress={handleSync}
             disabled={syncing}
           >
-            <ThemedText style={styles.syncBtnText}>{syncing ? '同步中...' : '立即同步'}</ThemedText>
+            <ThemedText style={styles.syncBtnText}>{syncing ? '同步中' : '同步'}</ThemedText>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.actionBtn, styles.leaveBtn, pressed && { opacity: 0.7 }]}
+            onPress={handleLeave}
+          >
+            <ThemedText style={styles.leaveBtnText}>{role === 'owner' ? '解散' : '退出'}</ThemedText>
           </Pressable>
         </View>
-      </ThemedView>
-
-      {/* 退出按钮 */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.leaveBtn,
-          pressed && { opacity: 0.7 },
-        ]}
-        onPress={handleLeave}
-      >
-        <ThemedText style={styles.leaveBtnText}>
-          {role === 'owner' ? '解散家庭' : '退出家庭'}
-        </ThemedText>
-      </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 16 },
+  container: { flex: 1, gap: 12 },
   card: {
-    borderRadius: 14,
-    padding: 20,
+    borderRadius: 16,
+    padding: 18,
     gap: 12,
   },
+  familyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  familyIcon: { fontSize: 28 },
   familyName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
+  },
+  familyRole: {
+    fontSize: 12,
+    opacity: 0.4,
+    marginTop: 1,
   },
   inviteRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
     padding: 14,
   },
   inviteInfo: { gap: 2 },
-  inviteLabel: { fontSize: 12 },
-  inviteCode: { fontSize: 28, fontWeight: '800', letterSpacing: 6 },
+  inviteLabel: { fontSize: 11, opacity: 0.5 },
+  inviteCode: { fontSize: 26, fontWeight: '800', letterSpacing: 6 },
   shareBtn: {
     backgroundColor: '#4CAF50',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
     borderRadius: 8,
   },
   shareBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
   memberRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E0E0E0',
+    paddingVertical: 8,
   },
-  memberInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  memberInfo: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   avatar: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  memberName: { fontSize: 15, fontWeight: '600' },
-  roleBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-  roleText: { fontSize: 11, fontWeight: '600' },
-  joinDate: { fontSize: 12, marginTop: 2 },
+  avatarText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  memberName: { fontSize: 14, fontWeight: '600' },
+  roleBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  roleText: { fontSize: 10, fontWeight: '600' },
   removeBtn: {
-    paddingHorizontal: 12, paddingVertical: 6,
+    paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: 6, backgroundColor: '#FFEBEE',
   },
-  removeBtnText: { color: '#C62828', fontSize: 13, fontWeight: '600' },
-  syncRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  removeBtnText: { color: '#C62828', fontSize: 12, fontWeight: '600' },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  syncInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  syncDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#4CAF50',
+  },
+  syncText: {
+    fontSize: 12,
+    opacity: 0.4,
+  },
+  actionBtns: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   syncBtn: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8,
+    backgroundColor: '#f0fdf4',
   },
-  syncBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  syncBtnText: {
+    color: '#2E7D32',
+    fontWeight: '600',
+    fontSize: 13,
+  },
   leaveBtn: {
-    alignItems: 'center', paddingVertical: 14,
-    borderRadius: 12, backgroundColor: '#FFEBEE',
+    backgroundColor: '#fef2f2',
   },
-  leaveBtnText: { color: '#C62828', fontWeight: '600', fontSize: 15 },
+  leaveBtnText: {
+    color: '#C62828',
+    fontWeight: '600',
+    fontSize: 13,
+  },
 });

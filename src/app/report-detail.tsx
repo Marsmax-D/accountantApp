@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Pressable, ScrollView, View, RefreshControl } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createReportQueries } from '@/db/report-queries';
@@ -23,6 +23,8 @@ import {
 export default function ReportDetailScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+  const { type: txTypeParam } = useLocalSearchParams<{ type?: string }>();
+  const txType = txTypeParam === 'expense' ? 'expense' : 'income';
 
   const [reportType, setReportType] = useState<ReportType>('monthly');
   const [refDate, setRefDate] = useState(toDateString(new Date()));
@@ -47,12 +49,16 @@ export default function ReportDetailScreen() {
       const prevRange = getPreviousPeriod(range, reportType);
       const nextRange = getNextPeriod(range, reportType);
 
+      const isIncome = txType === 'income';
+      const totalFn = isIncome ? reportQueries.totalIncome : reportQueries.totalExpense;
+      const categoryFn = isIncome ? reportQueries.incomeByCategory : reportQueries.expenseByCategory;
+
       const [current, previous, currentByCat, previousByCat, nextTotal] = await Promise.all([
-        reportQueries.totalIncome(range.start, range.end),
-        reportQueries.totalIncome(prevRange.start, prevRange.end),
-        reportQueries.incomeByCategory(range.start, range.end),
-        reportQueries.incomeByCategory(prevRange.start, prevRange.end),
-        reportQueries.totalIncome(nextRange.start, nextRange.end),
+        totalFn(range.start, range.end),
+        totalFn(prevRange.start, prevRange.end),
+        categoryFn(range.start, range.end),
+        categoryFn(prevRange.start, prevRange.end),
+        totalFn(nextRange.start, nextRange.end),
       ]);
 
       const change = previous.total > 0 ? (current.total - previous.total) / previous.total : 0;
@@ -63,7 +69,7 @@ export default function ReportDetailScreen() {
     } catch (err) {
       console.error('Failed to load comparison:', err);
     }
-  }, [db, reportType, refDate, getRange]);
+  }, [db, reportType, refDate, txType, getRange]);
 
   useEffect(() => {
     loadData();

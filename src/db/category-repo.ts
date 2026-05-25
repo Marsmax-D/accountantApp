@@ -43,6 +43,12 @@ export function createCategoryRepo(db: SQLiteDatabase, sync?: SyncContext) {
       );
     },
 
+    async getExpenseCategories(): Promise<Category[]> {
+      return await db.getAllAsync<Category>(
+        "SELECT * FROM categories WHERE type = 'expense' AND deleted_at IS NULL ORDER BY sort_order ASC"
+      );
+    },
+
     async getById(id: number): Promise<Category | null> {
       const result = await db.getAllAsync<Category>(
         'SELECT * FROM categories WHERE id = ? AND deleted_at IS NULL',

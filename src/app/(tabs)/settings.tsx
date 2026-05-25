@@ -20,30 +20,33 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [incomeCategories, setIncomeCategories] = useState<Category[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [transactionCount, setTransactionCount] = useState(0);
+  const [incomeTxCount, setIncomeTxCount] = useState(0);
+  const [expenseTxCount, setExpenseTxCount] = useState(0);
 
   const loadData = useCallback(async () => {
     const catRepo = createCategoryRepo(db);
-    const cats = await catRepo.getIncomeCategories();
-    setCategories(cats);
+    const [incomeCats, expenseCats] = await Promise.all([
+      catRepo.getIncomeCategories(),
+      catRepo.getExpenseCategories(),
+    ]);
+    setIncomeCategories(incomeCats);
+    setExpenseCategories(expenseCats);
 
     const txRepo = createTransactionRepo(db);
-    const count = await txRepo.count();
-    setTransactionCount(count);
+    const [incomeCount, expenseCount] = await Promise.all([
+      txRepo.count('income'),
+      txRepo.count('expense'),
+    ]);
+    setIncomeTxCount(incomeCount);
+    setExpenseTxCount(expenseCount);
   }, [db]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const handleManageCategories = () => {
-    const catList = categories
-      .map(c => `${c.name}${c.is_system ? ' (系统)' : ''}`)
-      .join('\n');
-    Alert.alert('当前收入分类', catList);
-  };
 
   const handleExport = async () => {
     try {
@@ -86,7 +89,8 @@ export default function SettingsScreen() {
       const txRepo = createTransactionRepo(db);
       // Delete all transactions
       await db.runAsync('DELETE FROM transactions');
-      setTransactionCount(0);
+      setIncomeTxCount(0);
+      setExpenseTxCount(0);
       Alert.alert('已完成', '所有交易数据已清除');
     } catch (err) {
       Alert.alert('清除失败', '请稍后重试');
@@ -111,8 +115,8 @@ export default function SettingsScreen() {
     },
     {
       icon: '📂',
-      title: '收入分类',
-      subtitle: `共 ${categories.length} 个分类`,
+      title: '分类管理',
+      subtitle: `收入 ${incomeCategories.length} 个 · 支出 ${expenseCategories.length} 个`,
       action: () => router.push('/category-manage'),
       badge: null,
     },
@@ -174,12 +178,20 @@ export default function SettingsScreen() {
         <View style={styles.statsSection}>
           <ThemedText style={styles.statsTitle}>数据统计</ThemedText>
           <View style={styles.statsRow}>
-            <ThemedText style={styles.statsLabel}>交易笔数</ThemedText>
-            <ThemedText style={styles.statsValue}>{transactionCount}</ThemedText>
+            <ThemedText style={styles.statsLabel}>收入笔数</ThemedText>
+            <ThemedText style={styles.statsValue}>{incomeTxCount}</ThemedText>
+          </View>
+          <View style={styles.statsRow}>
+            <ThemedText style={styles.statsLabel}>支出笔数</ThemedText>
+            <ThemedText style={styles.statsValue}>{expenseTxCount}</ThemedText>
           </View>
           <View style={styles.statsRow}>
             <ThemedText style={styles.statsLabel}>收入分类</ThemedText>
-            <ThemedText style={styles.statsValue}>{categories.length}</ThemedText>
+            <ThemedText style={styles.statsValue}>{incomeCategories.length}</ThemedText>
+          </View>
+          <View style={styles.statsRow}>
+            <ThemedText style={styles.statsLabel}>支出分类</ThemedText>
+            <ThemedText style={styles.statsValue}>{expenseCategories.length}</ThemedText>
           </View>
         </View>
 

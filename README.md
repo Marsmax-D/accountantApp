@@ -16,7 +16,7 @@
 
 ## 下载
 
-最新版本：**[v1.1.0](https://github.com/Marsmax-D/accountantApp/releases/tag/v1.1.0)**
+最新版本：**[v1.2.0](https://github.com/Marsmax-D/accountantApp/releases/tag/v1.2.0)**
 
 [![Release](https://img.shields.io/github/v/release/Marsmax-D/accountantApp?style=flat-square)](https://github.com/Marsmax-D/accountantApp/releases)
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, ScrollView, RefreshControl, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -18,9 +18,7 @@ import { FamilyDetails } from '@/components/family/FamilyDetails';
 
 export default function FamilyScreen() {
   const db = useSQLiteContext();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +28,6 @@ export default function FamilyScreen() {
     setLastSync, setPendingCount,
   } = useFamilyStore();
 
-  // Initialize user identity
   useEffect(() => {
     (async () => {
       try {
@@ -41,7 +38,6 @@ export default function FamilyScreen() {
             setFamily(meta.familyId, meta.familyName || '', meta.inviteCode || '', (meta.role as any) || 'member');
           }
         } else {
-          // First launch — generate user identity
           const newUserId = generateUUID();
           await writeSyncMeta(db, { user_id: newUserId, nickname: '' });
           setUser(newUserId, '');
@@ -54,7 +50,6 @@ export default function FamilyScreen() {
     })();
   }, []);
 
-  // Load family members
   useFocusEffect(
     useCallback(() => {
       if (!familyId) return;
@@ -67,7 +62,6 @@ export default function FamilyScreen() {
     }, [familyId])
   );
 
-  // 监听全局同步版本号，云端有变更时重新加载成员列表
   const syncVersion = useFamilyStore((s) => s.syncVersion);
   useEffect(() => {
     if (!familyId) return;
@@ -78,7 +72,6 @@ export default function FamilyScreen() {
     setError(null);
     try {
       if (!userId) {
-        // Generate user ID if not set
         const newUserId = generateUUID();
         await writeSyncMeta(db, { user_id: newUserId, nickname: nick });
         setUser(newUserId, nick);
@@ -114,6 +107,21 @@ export default function FamilyScreen() {
     }
   };
 
+  const handleSync = async () => {
+    setError(null);
+    try {
+      const pushResult = await pushChanges(db);
+      const pullResult = await pullChanges(db);
+      setPendingCount(0);
+      setLastSync(new Date().toISOString());
+      if (pushResult.errors.length > 0) {
+        setError(pushResult.errors.join(', '));
+      }
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const handleLeave = async () => {
     try {
       await leaveFamily(db);
@@ -133,73 +141,41 @@ export default function FamilyScreen() {
     }
   };
 
-  const handleSync = async () => {
-    setError(null);
-    try {
-      const pushResult = await pushChanges(db);
-      const pullResult = await pullChanges(db);
-      setPendingCount(0);
-      setLastSync(new Date().toISOString());
-      if (pushResult.errors.length > 0) {
-        setError(pushResult.errors.join(', '));
-      }
-    } catch (e: any) {
-      setError(e.message);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await handleSync();
-    if (familyId) {
-      try {
-        const list = await getFamilyMembers(familyId);
-        setMembers(list);
-      } catch { /* ignore */ }
-    }
-    setRefreshing(false);
-  };
-
   return (
     <ThemedView style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <ThemedText style={styles.pageTitle}>家庭</ThemedText>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
+      <View style={styles.body}>
         {error && (
-          <ThemedView style={[styles.errorCard, { backgroundColor: '#FFEBEE' }]}>
+          <View style={styles.errorCard}>
             <ThemedText style={styles.errorText}>{error}</ThemedText>
-          </ThemedView>
+          </View>
         )}
 
         {!familyId ? (
-          <View style={styles.content}>
+          <View style={styles.formContainer}>
             <CreateFamilyForm onSubmit={handleCreateFamily} loading={loading} />
             <View style={styles.divider}>
-              <ThemedText themeColor="textSecondary">或者</ThemedText>
+              <View style={styles.dividerLine} />
+              <ThemedText style={styles.dividerText}>或者</ThemedText>
+              <View style={styles.dividerLine} />
             </View>
             <JoinFamilyForm onSubmit={handleJoinFamily} loading={loading} />
           </View>
         ) : (
-          <View style={styles.content}>
-            <FamilyDetails
-              familyName={familyName!}
-              inviteCode={inviteCode!}
-              role={role!}
-              members={members}
-              onSync={handleSync}
-              onLeave={handleLeave}
-              onRemoveMember={handleRemoveMember}
-            />
-          </View>
+          <FamilyDetails
+            familyName={familyName!}
+            inviteCode={inviteCode!}
+            role={role!}
+            members={members}
+            onSync={handleSync}
+            onLeave={handleLeave}
+            onRemoveMember={handleRemoveMember}
+          />
         )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      </View>
     </ThemedView>
   );
 }
@@ -208,8 +184,31 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 16, paddingBottom: 4 },
   pageTitle: { fontSize: 28, fontWeight: '700', lineHeight: 40 },
-  content: { padding: 16, gap: 20 },
-  divider: { alignItems: 'center', paddingVertical: 8 },
-  errorCard: { padding: 12, borderRadius: 10, marginHorizontal: 16, marginTop: 8 },
-  errorText: { color: '#C62828', fontSize: 14 },
+  body: { flex: 1, padding: 16, gap: 12 },
+  errorCard: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 10,
+    padding: 10,
+  },
+  errorText: { color: '#C62828', fontSize: 13 },
+  formContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#e0e0e0',
+  },
+  dividerText: {
+    fontSize: 13,
+    opacity: 0.4,
+  },
 });

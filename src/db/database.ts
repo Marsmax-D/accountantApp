@@ -14,6 +14,7 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   // Migrations for existing databases
   await migrateV1(db);
   await migrateV2(db);
+  await migrateV3(db);
 }
 
 async function migrateV1(db: SQLiteDatabase): Promise<void> {
@@ -67,5 +68,15 @@ async function migrateV2(db: SQLiteDatabase): Promise<void> {
   ];
   for (const sql of newTables) {
     await db.runAsync(sql);
+  }
+}
+
+async function migrateV3(db: SQLiteDatabase): Promise<void> {
+  // 统一收入类型为绿色(#4CAF50)，支出类型为红色(#F44336)
+  for (const id of [1,2,3,4,5,6,7,8]) {
+    try { await db.runAsync(`UPDATE categories SET color = '#4CAF50' WHERE id = ${id} AND color != '#4CAF50'`); } catch {}
+  }
+  for (const id of [9,10,11,12,13,14,15,16]) {
+    try { await db.runAsync(`UPDATE categories SET color = '#F44336' WHERE id = ${id} AND color != '#F44336'`); } catch {}
   }
 }

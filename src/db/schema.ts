@@ -61,13 +61,21 @@ CREATE TABLE IF NOT EXISTS sync_operations (
 
 INSERT OR IGNORE INTO categories (id, name, type, source, icon, color, sort_order, is_system, channel) VALUES
 (1,  '工资',         'income', 'manual', 'briefcase',              '#4CAF50', 1, 1, 'online'),
-(2,  '奖金',         'income', 'manual', 'gift',                   '#FF9800', 2, 1, 'online'),
-(3,  '微信转账',     'income', 'wechat', 'arrow.left.arrow.right', '#07C160', 3, 1, 'online'),
-(4,  '微信红包',     'income', 'wechat', 'gift',                   '#FF5252', 4, 1, 'online'),
-(5,  '微信商户收款', 'income', 'wechat', 'building.store',         '#2196F3', 5, 1, 'online'),
-(6,  '现金收入',     'income', 'manual', 'dollarsign.circle',      '#9C27B0', 6, 1, 'offline'),
-(7,  '投资收入',     'income', 'manual', 'chart.line.uptrend.xyaxis', '#00BCD4', 7, 1, 'online'),
-(8,  '其他收入',     'income', 'both',   'ellipsis.circle',        '#607D8B', 8, 1, 'online');
+(2,  '奖金',         'income', 'manual', 'gift',                   '#4CAF50', 2, 1, 'online'),
+(3,  '微信转账',     'income', 'wechat', 'arrow.left.arrow.right', '#4CAF50', 3, 1, 'online'),
+(4,  '微信红包',     'income', 'wechat', 'gift',                   '#4CAF50', 4, 1, 'online'),
+(5,  '微信商户收款', 'income', 'wechat', 'building.store',         '#4CAF50', 5, 1, 'online'),
+(6,  '现金收入',     'income', 'manual', 'dollarsign.circle',      '#4CAF50', 6, 1, 'offline'),
+(7,  '投资收入',     'income', 'manual', 'chart.line.uptrend.xyaxis', '#4CAF50', 7, 1, 'online'),
+(8,  '其他收入',     'income', 'both',   'ellipsis.circle',        '#4CAF50', 8, 1, 'online'),
+(9,  '餐饮',         'expense', 'manual', 'fork.knife',             '#F44336', 1, 1, 'online'),
+(10, '交通',         'expense', 'manual', 'bus',                    '#F44336', 2, 1, 'online'),
+(11, '购物',         'expense', 'manual', 'cart',                   '#F44336', 3, 1, 'online'),
+(12, '住房',         'expense', 'manual', 'house',                  '#F44336', 4, 1, 'online'),
+(13, '娱乐',         'expense', 'manual', 'gamecontroller',         '#F44336', 5, 1, 'online'),
+(14, '医疗',         'expense', 'manual', 'cross.case',             '#F44336', 6, 1, 'online'),
+(15, '教育',         'expense', 'manual', 'book',                   '#F44336', 7, 1, 'online'),
+(16, '其他支出',     'expense', 'both',   'ellipsis.circle',        '#F44336', 8, 1, 'online');
 `;
 
 export const REPORT_QUERIES = {
@@ -134,12 +142,42 @@ export const REPORT_QUERIES = {
     ORDER BY t.date DESC, t.id DESC
   `,
 
+  totalExpense: `
+    SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
+    FROM transactions
+    WHERE type = 'expense' AND date >= ? AND date <= ? AND deleted_at IS NULL
+  `,
+
+  expenseByCategory: `
+    SELECT c.name, c.color, c.icon, SUM(t.amount) as total, COUNT(*) as count
+    FROM transactions t
+    JOIN categories c ON t.category_id = c.id
+    WHERE t.type = 'expense' AND t.date >= ? AND t.date <= ? AND t.deleted_at IS NULL
+    GROUP BY t.category_id
+    ORDER BY total DESC
+  `,
+
+  dailyExpense: `
+    SELECT date, SUM(amount) as total
+    FROM transactions
+    WHERE type = 'expense' AND date >= ? AND date <= ? AND deleted_at IS NULL
+    GROUP BY date
+    ORDER BY date ASC
+  `,
+
+  monthlyExpense: `
+    SELECT substr(date, 1, 7) as month, SUM(amount) as total
+    FROM transactions
+    WHERE type = 'expense' AND date >= ? AND date <= ? AND deleted_at IS NULL
+    GROUP BY month
+    ORDER BY month ASC
+  `,
+
   searchTransactions: `
     SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
     FROM transactions t
     JOIN categories c ON t.category_id = c.id
-    WHERE t.type = 'income'
-      AND t.date >= ? AND t.date <= ?
+    WHERE t.date >= ? AND t.date <= ?
       AND t.deleted_at IS NULL
       AND (t.note LIKE ? OR c.name LIKE ?)
     ORDER BY t.date DESC, t.id DESC

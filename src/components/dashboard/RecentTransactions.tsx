@@ -49,30 +49,33 @@ export function RecentTransactions({ transactions, onViewAll, onItemPress }: Pro
 const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 14,
+    marginBottom: 2,
+    padding: 14,
+    paddingTop: 12,
+    borderRadius: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 2,
   },
   title: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
+    color: '#1a1a1a',
   },
   viewAll: {
-    fontSize: 14,
-    opacity: 0.6,
+    fontSize: 13,
+    color: '#4CAF50',
+    fontWeight: '500',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#f0f0f0',
   },
   dot: {
     width: 10,
@@ -84,24 +87,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   category: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
+    color: '#1a1a1a',
   },
   note: {
-    fontSize: 12,
-    opacity: 0.5,
-    marginTop: 2,
+    fontSize: 11,
+    color: '#999',
+    marginTop: 1,
   },
   right: {
     alignItems: 'flex-end',
   },
   amount: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
+    color: '#1a1a1a',
   },
   date: {
-    fontSize: 12,
-    opacity: 0.5,
-    marginTop: 2,
+    fontSize: 11,
+    color: '#999',
+    marginTop: 1,
   },
 });

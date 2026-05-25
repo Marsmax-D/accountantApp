@@ -10,16 +10,17 @@ interface Props {
   previousTotal: number;
   periodLabel: string;
   comparisonLabel?: string;
+  type?: 'income' | 'expense';
 }
 
-export function IncomeTotalCard({ total, count, previousTotal, periodLabel, comparisonLabel = '较上月' }: Props) {
+export function IncomeTotalCard({ total, count, previousTotal, periodLabel, comparisonLabel = '较上月', type = 'income' }: Props) {
   const theme = useTheme();
   const change = previousTotal > 0 ? (total - previousTotal) / previousTotal : 0;
   const isUp = change >= 0;
 
   return (
     <ThemedView style={styles.card}>
-      <ThemedText style={styles.label}>{periodLabel}收入</ThemedText>
+      <ThemedText style={styles.label}>{periodLabel}{type === 'income' ? '收入' : '支出'}</ThemedText>
       <ThemedText style={styles.amount}>{formatCurrency(total)}</ThemedText>
       <View style={styles.row}>
         <View style={[styles.changeBadge, { backgroundColor: isUp ? '#E8F5E9' : '#FFEBEE' }]}>

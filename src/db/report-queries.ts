@@ -35,6 +35,23 @@ export function createReportQueries(db: SQLiteDatabase) {
     async incomeByChannel(dateFrom: string, dateTo: string): Promise<ChannelBreakdown[]> {
       return await db.getAllAsync<ChannelBreakdown>(REPORT_QUERIES.incomeByChannel, dateFrom, dateTo);
     },
+
+    async totalExpense(dateFrom: string, dateTo: string): Promise<ReportSummary> {
+      const result = await db.getAllAsync<ReportSummary>(REPORT_QUERIES.totalExpense, dateFrom, dateTo);
+      return result[0] ?? { total: 0, count: 0 };
+    },
+
+    async expenseByCategory(dateFrom: string, dateTo: string): Promise<CategoryBreakdown[]> {
+      return await db.getAllAsync<CategoryBreakdown>(REPORT_QUERIES.expenseByCategory, dateFrom, dateTo);
+    },
+
+    async dailyExpense(dateFrom: string, dateTo: string): Promise<DailyTotal[]> {
+      return await db.getAllAsync<DailyTotal>(REPORT_QUERIES.dailyExpense, dateFrom, dateTo);
+    },
+
+    async monthlyExpense(dateFrom: string, dateTo: string): Promise<MonthlyTotal[]> {
+      return await db.getAllAsync<MonthlyTotal>(REPORT_QUERIES.monthlyExpense, dateFrom, dateTo);
+    },
   };
 }
 

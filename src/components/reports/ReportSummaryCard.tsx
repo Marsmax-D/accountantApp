@@ -8,15 +8,17 @@ interface Props {
   count: number;
   previousTotal: number;
   dailyAvg: number;
+  title?: string;
+  dailyLabel?: string;
 }
 
-export function ReportSummaryCard({ total, count, previousTotal, dailyAvg }: Props) {
+export function ReportSummaryCard({ total, count, previousTotal, dailyAvg, title = '总收入', dailyLabel = '日均收入' }: Props) {
   const change = previousTotal > 0 ? (total - previousTotal) / previousTotal : 0;
   const isUp = change >= 0;
 
   return (
     <ThemedView style={styles.card}>
-      <ThemedText style={styles.label}>总收入</ThemedText>
+      <ThemedText style={styles.label}>{title}</ThemedText>
       <ThemedText style={styles.amount}>{formatCurrency(total)}</ThemedText>
 
       <View style={styles.metaRow}>
@@ -36,7 +38,7 @@ export function ReportSummaryCard({ total, count, previousTotal, dailyAvg }: Pro
         <View style={styles.divider} />
         <View style={styles.stat}>
           <ThemedText style={styles.statValue}>{formatCurrency(dailyAvg)}</ThemedText>
-          <ThemedText style={styles.statLabel}>日均收入</ThemedText>
+          <ThemedText style={styles.statLabel}>{dailyLabel}</ThemedText>
         </View>
       </View>
     </ThemedView>

@@ -16,6 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { type Category } from '@/types/transaction';
 
 export default function CategoryManageScreen() {
@@ -23,6 +24,7 @@ export default function CategoryManageScreen() {
   const router = useRouter();
   const theme = useTheme();
 
+  const [categoryType, setCategoryType] = useState<'income' | 'expense'>('income');
   const [categories, setCategories] = useState<Category[]>([]);
   const [addMode, setAddMode] = useState(false);
   const [newName, setNewName] = useState('');
@@ -30,9 +32,11 @@ export default function CategoryManageScreen() {
 
   const loadData = useCallback(async () => {
     const repo = createCategoryRepo(db);
-    const cats = await repo.getIncomeCategories();
+    const cats = categoryType === 'income'
+      ? await repo.getIncomeCategories()
+      : await repo.getExpenseCategories();
     setCategories(cats);
-  }, [db]);
+  }, [db, categoryType]);
 
   useEffect(() => {
     loadData();
@@ -46,7 +50,7 @@ export default function CategoryManageScreen() {
       const repo = createCategoryRepo(db);
       await repo.insert({
         name,
-        type: 'income',
+        type: categoryType,
         source: 'manual',
       });
       setNewName('');
@@ -82,6 +86,17 @@ export default function CategoryManageScreen() {
           <Pressable onPress={() => setAddMode(true)}>
             <ThemedText style={styles.add}>添加</ThemedText>
           </Pressable>
+        </View>
+
+        <View style={styles.typeToggle}>
+          <SegmentedControl
+            options={[
+              { key: 'income', label: '收入分类' },
+              { key: 'expense', label: '支出分类' },
+            ]}
+            selected={categoryType}
+            onSelect={(key) => setCategoryType(key as 'income' | 'expense')}
+          />
         </View>
 
         <ScrollView style={styles.list}>
@@ -164,6 +179,10 @@ const styles = StyleSheet.create({
   },
   cancel: { fontSize: 16 },
   title: { fontSize: 17, fontWeight: '600' },
+  typeToggle: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   add: { fontSize: 16, fontWeight: '500', color: '#4CAF50' },
   list: { paddingHorizontal: 16 },
   addRow: {

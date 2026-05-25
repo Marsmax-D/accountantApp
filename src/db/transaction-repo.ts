@@ -82,14 +82,20 @@ export function createTransactionRepo(db: SQLiteDatabase, sync?: SyncContext) {
       searchQuery?: string;
       limit?: number;
       offset?: number;
+      type?: 'income' | 'expense';
     }): Promise<TransactionWithCategory[]> {
       let sql = `
         SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
         FROM transactions t
         JOIN categories c ON t.category_id = c.id
-        WHERE t.type = 'income' AND t.deleted_at IS NULL
+        WHERE t.deleted_at IS NULL
       `;
       const params: any[] = [];
+
+      if (filters?.type) {
+        sql += ' AND t.type = ?';
+        params.push(filters.type);
+      }
 
       if (filters?.dateFrom) {
         sql += ' AND t.date >= ?';
@@ -126,16 +132,21 @@ export function createTransactionRepo(db: SQLiteDatabase, sync?: SyncContext) {
       return await db.getAllAsync(sql, params);
     },
 
-    async getRecent(limit: number = 5): Promise<TransactionWithCategory[]> {
-      return await db.getAllAsync(
-        `SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
-         FROM transactions t
-         JOIN categories c ON t.category_id = c.id
-         WHERE t.type = 'income' AND t.deleted_at IS NULL
-         ORDER BY t.date DESC, t.id DESC
-         LIMIT ?`,
-        limit
-      );
+    async getRecent(limit: number = 5, type?: 'income' | 'expense'): Promise<TransactionWithCategory[]> {
+      let sql = `
+        SELECT t.*, c.name as category_name, c.color as category_color, c.icon as category_icon
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        WHERE t.deleted_at IS NULL
+      `;
+      const params: any[] = [];
+      if (type) {
+        sql += ' AND t.type = ?';
+        params.push(type);
+      }
+      sql += ' ORDER BY t.date DESC, t.id DESC LIMIT ?';
+      params.push(limit);
+      return await db.getAllAsync(sql, params);
     },
 
     async getById(id: number): Promise<TransactionWithCategory | null> {
@@ -216,17 +227,25 @@ export function createTransactionRepo(db: SQLiteDatabase, sync?: SyncContext) {
       }
     },
 
-    async count(): Promise<number> {
-      const result = await db.getAllAsync<{ cnt: number }>(
-        `SELECT COUNT(*) as cnt FROM transactions WHERE type = 'income' AND deleted_at IS NULL`
-      );
+    async count(type?: 'income' | 'expense'): Promise<number> {
+      let sql = `SELECT COUNT(*) as cnt FROM transactions WHERE deleted_at IS NULL`;
+      const params: any[] = [];
+      if (type) {
+        sql += ' AND type = ?';
+        params.push(type);
+      }
+      const result = await db.getAllAsync<{ cnt: number }>(sql, params);
       return result[0]?.cnt ?? 0;
     },
 
-    async getDateRange(): Promise<{ min: string; max: string } | null> {
-      const result = await db.getAllAsync<{ min: string; max: string }>(
-        `SELECT MIN(date) as min, MAX(date) as max FROM transactions WHERE type = 'income' AND deleted_at IS NULL`
-      );
+    async getDateRange(type?: 'income' | 'expense'): Promise<{ min: string; max: string } | null> {
+      let sql = `SELECT MIN(date) as min, MAX(date) as max FROM transactions WHERE deleted_at IS NULL`;
+      const params: any[] = [];
+      if (type) {
+        sql += ' AND type = ?';
+        params.push(type);
+      }
+      const result = await db.getAllAsync<{ min: string; max: string }>(sql, params);
       return result[0]?.min ? result[0] : null;
     },
 

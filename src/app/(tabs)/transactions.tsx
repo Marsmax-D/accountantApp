@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, RefreshControl, SectionList, Pressable, View, Alert } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -15,12 +15,17 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { FloatingActionButton } from '@/components/common/FloatingActionButton';
 import { FilterBar } from '@/components/transactions/FilterBar';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { type TransactionWithCategory } from '@/types/transaction';
 
 interface Section {
   title: string;
+  date: string;
   data: TransactionWithCategory[];
+  dayTotal: number;
 }
+
+const PAGE_SIZE = 30;
 
 export default function TransactionsScreen() {
   const db = useSQLiteContext();
@@ -29,39 +34,54 @@ export default function TransactionsScreen() {
   const [sections, setSections] = useState<Section[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [hasData, setHasData] = useState(false);
-  const [totalAmount, setTotalAmount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
+  const [incomeTotal, setIncomeTotal] = useState(0);
+  const [expenseTotal, setExpenseTotal] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<TransactionWithCategory | null>(null);
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore] = useState(true);
 
-  const { filterDateFrom, filterDateTo, searchQuery } = useUIStore();
+  const limitRef = useRef(PAGE_SIZE);
 
-  const loadData = useCallback(async () => {
+  const { filterDateFrom, filterDateTo, filterType, searchQuery, setFilterType } = useUIStore();
+
+  const loadData = useCallback(async (append = false) => {
     try {
       const txRepo = createTransactionRepo(db);
       const reportQueries = createReportQueries(db);
 
-      const [transactions, incomeTotal] = await Promise.all([
+      const typeFilter = filterType !== 'all' ? filterType : undefined;
+
+      if (!append) {
+        limitRef.current = PAGE_SIZE;
+      }
+
+      const [transactions, incomeTotalData, expenseTotalData] = await Promise.all([
         txRepo.getAll({
           dateFrom: filterDateFrom ?? undefined,
           dateTo: filterDateTo ?? undefined,
           searchQuery: searchQuery || undefined,
-          limit: 200,
+          type: typeFilter,
+          limit: limitRef.current,
         }),
         reportQueries.totalIncome(
           filterDateFrom ?? '2000-01-01',
           filterDateTo ?? '2099-12-31',
         ),
+        reportQueries.totalExpense(
+          filterDateFrom ?? '2000-01-01',
+          filterDateTo ?? '2099-12-31',
+        ),
       ]);
 
-      setTotalAmount(incomeTotal.total);
-      setTotalCount(incomeTotal.count);
+      setIncomeTotal(incomeTotalData.total);
+      setExpenseTotal(expenseTotalData.total);
+      setHasMore(transactions.length >= limitRef.current);
 
       if (transactions.length === 0) {
         setSections([]);
         setHasData(false);
         return;
       }
-
       setHasData(true);
 
       const grouped: Record<string, TransactionWithCategory[]> = {};
@@ -79,15 +99,16 @@ export default function TransactionsScreen() {
         if (date === todayStr) title = '今天';
         else if (date === yesterdayStr) title = '昨天';
         else title = formatRelativeDate(date);
-        return { title, data: items };
+        const dayTotal = items.reduce((sum, tx) => sum + (tx.type === 'income' ? tx.amount : -tx.amount), 0);
+        return { title, date, data: items, dayTotal };
       });
 
-      sectionList.sort((a, b) => b.data[0].date.localeCompare(a.data[0].date));
+      sectionList.sort((a, b) => b.date.localeCompare(a.date));
       setSections(sectionList);
     } catch (err) {
       console.error('Failed to load transactions:', err);
     }
-  }, [db, filterDateFrom, filterDateTo, searchQuery]);
+  }, [db, filterDateFrom, filterDateTo, filterType, searchQuery]);
 
   // 监听同步完成事件，云端数据拉取后自动刷新账单列表
   const syncVersion = useFamilyStore((s) => s.syncVersion);
@@ -104,7 +125,7 @@ export default function TransactionsScreen() {
   // Re-fetch when filter params change
   useEffect(() => {
     loadData();
-  }, [filterDateFrom, filterDateTo, searchQuery]);
+  }, [filterDateFrom, filterDateTo, filterType, searchQuery]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
@@ -125,33 +146,132 @@ export default function TransactionsScreen() {
     setRefreshing(false);
   }, [loadData]);
 
+  const loadMore = useCallback(() => {
+    if (!hasMore) return;
+    limitRef.current += PAGE_SIZE;
+    loadData(true);
+  }, [hasMore, loadData]);
+
+  const toggleSection = (date: string) => {
+    setCollapsedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  };
+
+  const visibleSections = useMemo(() =>
+    sections.map(s => ({
+      ...s,
+      data: collapsedDates.has(s.date) ? [] : s.data,
+    })),
+    [sections, collapsedDates]
+  );
+
+  const hasIncome = incomeTotal > 0;
+  const hasExpense = expenseTotal > 0;
+
+  const renderBreakdown = () => {
+    if (filterType === 'all') {
+      if (!hasIncome && !hasExpense) return null;
+      return (
+        <View style={styles.breakdownRow}>
+          {hasIncome && (
+            <View style={[styles.breakdownBox, { backgroundColor: '#f0fdf4' }]}>
+              <ThemedText style={styles.breakdownLabel}>收入</ThemedText>
+              <ThemedText style={[styles.breakdownAmount, { color: '#2E7D32' }]}>
+                {formatCurrency(incomeTotal)}
+              </ThemedText>
+            </View>
+          )}
+          {hasExpense && (
+            <View style={[styles.breakdownBox, { backgroundColor: '#fef2f2' }]}>
+              <ThemedText style={styles.breakdownLabel}>支出</ThemedText>
+              <ThemedText style={[styles.breakdownAmount, { color: '#C62828' }]}>
+                {formatCurrency(expenseTotal)}
+              </ThemedText>
+            </View>
+          )}
+        </View>
+      );
+    }
+    if (filterType === 'income' && hasIncome) {
+      return (
+        <View style={styles.breakdownRow}>
+          <View style={[styles.breakdownBox, { backgroundColor: '#f0fdf4' }]}>
+            <ThemedText style={styles.breakdownLabel}>收入</ThemedText>
+            <ThemedText style={[styles.breakdownAmount, { color: '#2E7D32' }]}>
+              {formatCurrency(incomeTotal)}
+            </ThemedText>
+          </View>
+        </View>
+      );
+    }
+    if (filterType === 'expense' && hasExpense) {
+      return (
+        <View style={styles.breakdownRow}>
+          <View style={[styles.breakdownBox, { backgroundColor: '#fef2f2' }]}>
+            <ThemedText style={styles.breakdownLabel}>支出</ThemedText>
+            <ThemedText style={[styles.breakdownAmount, { color: '#C62828' }]}>
+              {formatCurrency(expenseTotal)}
+            </ThemedText>
+          </View>
+        </View>
+      );
+    }
+    return null;
+  };
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ThemedText style={styles.pageTitle}>账单</ThemedText>
+        <View style={styles.filterTypeRow}>
+          <SegmentedControl
+            options={[
+              { key: 'all', label: '收支' },
+              { key: 'income', label: '收入' },
+              { key: 'expense', label: '支出' },
+            ]}
+            selected={filterType}
+            onSelect={(key) => setFilterType(key as 'all' | 'income' | 'expense')}
+          />
+        </View>
         <FilterBar />
 
-        <ThemedView style={styles.totalRow}>
-          <ThemedText style={styles.totalAmount}>{formatCurrency(totalAmount)}</ThemedText>
-          <ThemedText style={styles.totalCount}>共 {totalCount} 笔</ThemedText>
-        </ThemedView>
+        {renderBreakdown()}
 
         {!hasData ? (
           <EmptyState
             icon="📄"
             title={searchQuery ? '没有匹配的记录' : '暂无账单记录'}
-            description={searchQuery ? '尝试修改搜索条件' : '添加收入后，账单会在这里按日期排列。'}
+            description={searchQuery ? '尝试修改搜索条件' : '添加收入或支出后，账单会在这里按日期排列。'}
           />
         ) : (
           <SectionList
-            sections={sections}
+            sections={visibleSections}
             keyExtractor={(item) => String(item.id)}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            renderSectionHeader={({ section }) => (
-              <ThemedView style={styles.sectionHeader}>
-                <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
-              </ThemedView>
-            )}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.3}
+            contentContainerStyle={{ paddingBottom: 80 }}
+            renderSectionHeader={({ section }) => {
+              const orig = sections.find(s => s.date === section.date)!;
+              const isCollapsed = collapsedDates.has(section.date);
+              return (
+                <Pressable onPress={() => toggleSection(section.date)}>
+                  <ThemedView style={styles.sectionHeader}>
+                    <View style={styles.sectionHeaderLeft}>
+                      <ThemedText style={styles.sectionArrow}>{isCollapsed ? '▶' : '▼'}</ThemedText>
+                      <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
+                      <ThemedText style={styles.sectionCount}>{orig.data.length}笔</ThemedText>
+                    </View>
+                    <ThemedText style={[styles.sectionTotal, { color: orig.dayTotal >= 0 ? '#2E7D32' : '#C62828' }]}>{formatCurrency(orig.dayTotal)}</ThemedText>
+                  </ThemedView>
+                </Pressable>
+              );
+            }}
             renderItem={({ item }) => (
               <Pressable
                 style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
@@ -184,7 +304,7 @@ export default function TransactionsScreen() {
         <ConfirmDialog
           visible={deleteTarget !== null}
           title="删除记录"
-          message={`确定要删除这笔 ${formatCurrency(deleteTarget?.amount ?? 0)} 的收入记录吗？`}
+          message={`确定要删除这笔 ${formatCurrency(deleteTarget?.amount ?? 0)} 的记录吗？`}
           confirmText="删除"
           cancelText="取消"
           onConfirm={handleDelete}
@@ -207,29 +327,62 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingBottom: 4,
   },
-  totalRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+  filterTypeRow: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 10,
+    paddingBottom: 8,
   },
-  totalAmount: {
-    fontSize: 28,
+  breakdownRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  breakdownBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  breakdownLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    opacity: 0.6,
+  },
+  breakdownAmount: {
+    fontSize: 17,
     fontWeight: '700',
   },
-  totalCount: {
-    fontSize: 13,
-    opacity: 0.5,
-  },
   sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 8,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sectionArrow: {
+    fontSize: 10,
+    opacity: 0.35,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
     opacity: 0.6,
+  },
+  sectionCount: {
+    fontSize: 12,
+    opacity: 0.35,
+  },
+  sectionTotal: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   row: {
     flexDirection: 'row',

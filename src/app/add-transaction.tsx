@@ -22,6 +22,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CategoryPicker } from '@/components/common/CategoryPicker';
+import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { type Category, type TransactionWithCategory } from '@/types/transaction';
 import { type SyncContext } from '@/db/transaction-repo';
 
@@ -32,6 +33,7 @@ export default function AddTransactionScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditing = !!id;
 
+  const [txType, setTxType] = useState<'income' | 'expense'>('income');
   const [categories, setCategories] = useState<Category[]>([]);
   const [amount, setAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -44,17 +46,17 @@ export default function AddTransactionScreen() {
 
   const dateObj = new Date(date + 'T00:00:00');
 
+  // 根据 txType 动态加载对应分类
   useEffect(() => {
     const repo = createCategoryRepo(db);
-    repo.getIncomeCategories().then((cats) => {
+    const loader = txType === 'income' ? repo.getIncomeCategories() : repo.getExpenseCategories();
+    loader.then((cats) => {
       setCategories(cats);
-      // 默认选中"微信商户收款"(id=5)
-      const defaultCat = cats.find((c) => c.id === 5);
-      if (defaultCat && !id) {
-        setSelectedCategory(defaultCat);
+      if (!id) {
+        setSelectedCategory(cats[0] ?? null);
       }
     });
-  }, [db, id]);
+  }, [db, id, txType]);
 
   // Edit mode: load existing transaction
   useEffect(() => {
@@ -63,12 +65,14 @@ export default function AddTransactionScreen() {
     const txRepo = createTransactionRepo(db);
     txRepo.getById(parseInt(id)).then((tx) => {
       if (tx) {
+        setTxType(tx.type);
         setAmount(String(tx.amount));
         setDate(tx.date);
         setNote(tx.note ?? '');
         // find matching category
         const catRepo = createCategoryRepo(db);
-        catRepo.getIncomeCategories().then((cats) => {
+        const loader = tx.type === 'income' ? catRepo.getIncomeCategories() : catRepo.getExpenseCategories();
+        loader.then((cats) => {
           const cat = cats.find((c) => c.id === tx.category_id);
           if (cat) setSelectedCategory(cat);
         });
@@ -95,7 +99,7 @@ export default function AddTransactionScreen() {
       } else {
         await txRepo.insert({
           amount: parseFloat(amount),
-          type: 'income',
+          type: txType,
           category_id: selectedCategory!.id,
           source: 'manual',
           date,
@@ -132,7 +136,7 @@ export default function AddTransactionScreen() {
             <Pressable onPress={() => router.back()}>
               <ThemedText style={styles.cancel}>取消</ThemedText>
             </Pressable>
-            <ThemedText style={styles.title}>{isEditing ? '编辑收入' : '记一笔收入'}</ThemedText>
+            <ThemedText style={styles.title}>{isEditing ? `编辑${txType === 'income' ? '收入' : '支出'}` : `记一笔${txType === 'income' ? '收入' : '支出'}`}</ThemedText>
             <Pressable
               onPress={handleSave}
               disabled={!canSave || saving}
@@ -146,6 +150,17 @@ export default function AddTransactionScreen() {
                 {saving ? '保存中...' : '保存'}
               </ThemedText>
             </Pressable>
+          </View>
+
+          <View style={styles.typeToggle}>
+            <SegmentedControl
+              options={[
+                { key: 'income', label: '收入' },
+                { key: 'expense', label: '支出' },
+              ]}
+              selected={txType}
+              onSelect={(key) => setTxType(key as 'income' | 'expense')}
+            />
           </View>
 
           <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
@@ -245,6 +260,10 @@ const styles = StyleSheet.create({
   },
   cancel: { fontSize: 16 },
   title: { fontSize: 17, fontWeight: '600' },
+  typeToggle: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
   saveButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,

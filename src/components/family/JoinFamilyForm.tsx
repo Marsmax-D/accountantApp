@@ -25,10 +25,15 @@ export function JoinFamilyForm({ onSubmit, loading }: Props) {
     }
   };
 
+  const disabled = submitting || loading || inviteCode.length !== 6;
+
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText style={styles.cardTitle}>加入家庭</ThemedText>
-      <ThemedText themeColor="textSecondary" style={styles.description}>
+    <ThemedView style={styles.card}>
+      <View style={styles.cardHeader}>
+        <ThemedText style={styles.cardIcon}>👨‍👩‍👧‍👦</ThemedText>
+        <ThemedText style={styles.cardTitle}>加入家庭</ThemedText>
+      </View>
+      <ThemedText style={styles.description}>
         输入朋友分享的6位数字邀请码
       </ThemedText>
 
@@ -57,13 +62,9 @@ export function JoinFamilyForm({ onSubmit, loading }: Props) {
       </View>
 
       <Pressable
-        style={({ pressed }) => [
-          styles.button,
-          { backgroundColor: '#2196F3' },
-          pressed && { opacity: 0.7 },
-        ]}
+        style={({ pressed }) => [styles.button, disabled && { opacity: 0.5 }, pressed && { opacity: 0.7 }]}
         onPress={handleSubmit}
-        disabled={submitting || loading || inviteCode.length !== 6}
+        disabled={disabled}
       >
         <ThemedText style={styles.buttonText}>
           {submitting ? '加入中...' : '加入家庭'}
@@ -75,23 +76,32 @@ export function JoinFamilyForm({ onSubmit, loading }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
-    padding: 20,
-    gap: 14,
+    borderRadius: 16,
+    padding: 18,
+    gap: 10,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardIcon: {
+    fontSize: 20,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
   },
   description: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    opacity: 0.5,
+    lineHeight: 18,
   },
   field: {
-    gap: 6,
+    gap: 5,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   input: {
@@ -100,7 +110,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 16,
+    fontSize: 15,
     color: '#212121',
   },
   codeInput: {
@@ -110,14 +120,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   button: {
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 2,
+    backgroundColor: '#2196F3',
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
 });
