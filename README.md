@@ -1,26 +1,36 @@
 # 管账人
 
-个人收入记账应用，支持手动记账和微信账单导入。基于 Expo SDK 56 + React Native 0.85，支持 Android、iOS 和 Web。
+个人收支记账应用，支持手动记账、微信账单导入、数据报表和家庭共享。基于 Expo SDK 56 + React Native 0.85，支持 Android、iOS 和 Web。
 
 ## 功能
 
-- **收入记录** — 手动添加收入，支持金额、分类、日期、备注，可编辑和删除
-- **支出管理** — 完整支出录入与展示，分类管理（餐饮、交通、购物、住房等 8 个预置分类）
-- **账单列表** — 按日期分组的收支明细，支持筛选（收入/支出/全部）、搜索、下拉刷新、无限滚动
-- **微信账单导入** — 支持 CSV / XLSX 微信账单文件导入，自动检测编码（UTF-8/GBK），智能去重归类
-- **分类管理** — 预置 8 个系统分类（工资、红包、转账、商户收款等），支持自定义分类，区分线上/线下渠道
-- **数据报表** — 按月/季/年查看收入趋势柱状图，支持左右滑动切换周期，点击柱子查看明细
-- **仪表盘** — 今日收支总览（净收入卡片），本月收支明细（收入/支出占比、金额统计），最近 6 条记录快速查看
-- **对比分析** — 不同时期数据对比，展示环比变化率
-- **家庭共享** — 创建或加入家庭，多设备数据自动同步，家庭成员即时共享
-- **云端同步** — 基于 Supabase 的自动同步引擎，支持增量推送/拉取、Realtime 订阅
-- **暗色模式** — 跟随系统自动切换亮色/暗色主题
+- 💰 **收支记录** — 手动添加收入/支出，支持金额、分类、日期、备注，可编辑和删除
+- 📊 **账单列表** — 按日期分组展示所有收支，支持筛选（收入/支出/全部）、关键词搜索、下拉刷新、无限滚动
+- 📂 **分类管理** — 16 个系统预置分类（8 收入 + 8 支出），支持自定义分类，区分线上/线下渠道
+- 📥 **微信账单导入** — 支持 CSV / XLSX 微信账单文件导入，自动检测编码（UTF-8/GBK），智能去重归类
+- 📈 **数据报表** — 按月/季/年查看收支趋势柱状图，支持左右滑动切换周期，点击柱子查看明细
+- 🏠 **仪表盘** — 今日收支总览（净收入卡片），本月收支明细（收入/支出占比、金额统计），最近 6 条记录快速查看
+- 🔄 **对比分析** — 不同时期数据对比，展示环比变化率
+- 👨‍👩‍👧 **家庭共享** — 创建或加入家庭，多设备数据自动同步，家庭成员即时共享
+- ☁️ **云端同步** — 基于 Supabase 的自动同步引擎（操作队列 + 增量拉取 + Realtime 订阅）
+- 🌙 **暗色模式** — 跟随系统自动切换亮色/暗色主题
+- 🌐 **Web 适配** — 浏览器端完整体验，响应式布局
 
 ## 下载
 
 最新版本：**[v1.0.0](https://github.com/Marsmax-D/accountantApp/releases/tag/v1.0.0)**
 
 [![Release](https://img.shields.io/github/v/release/Marsmax-D/accountantApp?style=flat-square)](https://github.com/Marsmax-D/accountantApp/releases)
+
+### Android APK 下载
+
+| 架构 | 文件 | 适用设备 |
+|------|------|----------|
+| arm64-v8a | [app-arm64-v8a-release.apk](https://github.com/Marsmax-D/accountantApp/releases/download/v1.0.0/app-arm64-v8a-release.apk) | 现代 Android 手机（推荐） |
+| armeabi-v7a | [app-armeabi-v7a-release.apk](https://github.com/Marsmax-D/accountantApp/releases/download/v1.0.0/app-armeabi-v7a-release.apk) | 旧款 Android 手机 |
+| universal | [app-universal-release.apk](https://github.com/Marsmax-D/accountantApp/releases/download/v1.0.0/app-universal-release.apk) | 全架构（体积较大） |
+
+> 📱 iOS 用户请使用源码本地构建，或等待 App Store 上架。
 
 ## 技术栈
 
@@ -45,18 +55,20 @@
 # 安装依赖
 npm install
 
-# 启动开发服务器
+# 启动开发服务器（Web）
 npm start
 
-# Android
+# Android（需要连接设备或模拟器）
 npm run android
 
-# iOS
+# iOS（需要 macOS + Xcode）
 npm run ios
 
-# Web
+# Web 浏览器预览
 npm run web
 ```
+
+> 首次启动后访问 `http://localhost:8081` 即可在浏览器中预览。
 
 ## 项目结构
 
@@ -68,18 +80,18 @@ src/
 │   │   ├── _layout.tsx      # 原生 Tab 栏（含 Tab 图标弹跳动画）
 │   │   ├── _layout.web.tsx  # Web Tab 栏（胶囊式悬浮）
 │   │   ├── index.tsx        # 首页仪表盘（同步后自动刷新）
-│   │   ├── transactions.tsx # 账单列表（同步后自动刷新）
-│   │   ├── reports.tsx      # 数据报表（滑动切换 + 柱状图）
+│   │   ├── transactions.tsx # 账单列表（筛选/搜索/无限滚动，同步后自动刷新）
+│   │   ├── reports.tsx      # 数据报表（滑动切换 + 柱状图 + 分类明细）
 │   │   ├── family.tsx       # 家庭管理（创建/加入/成员列表）
-│   │   └── settings.tsx     # 设置
-│   ├── add-transaction.tsx  # 新增/编辑收入（保存后即时推送云端）
+│   │   └── settings.tsx     # 设置（Ionicons 图标、分组卡片、暗色适配）
+│   ├── add-transaction.tsx  # 新增/编辑收入/支出（保存后即时推送云端）
 │   ├── csv-import.tsx       # 微信账单导入（导入后即时推送云端）
 │   ├── category-manage.tsx  # 分类管理（模态）
 │   └── report-detail.tsx    # 对比分析（模态）
 ├── components/
-│   ├── common/              # 通用组件（FAB、EmptyState、CategoryPicker、ConfirmDialog）
-│   ├── dashboard/           # 仪表盘组件（收入卡片、渠道拆分、最近记录）
-│   ├── reports/             # 报表组件（周期选择器、柱状图、分类明细、对比视图）
+│   ├── common/              # 通用组件（FAB、EmptyState、CategoryPicker、ConfirmDialog、SegmentedControl）
+│   ├── dashboard/           # 仪表盘组件（收支卡片、渠道拆分、最近记录）
+│   ├── reports/             # 报表组件（周期选择器、柱状图、分类明细、对比视图、饼图）
 │   ├── transactions/        # 账单组件（筛选栏）
 │   ├── family/              # 家庭组件（创建表单、加入表单、家庭详情）
 │   └── ui/                  # 基础 UI（collapsible）
@@ -151,6 +163,19 @@ src/
 6. **UI 刷新** → `syncVersion` 递增通知各页面重新查询数据
 
 组件位置：`src/sync/` — SyncProvider（全局周期同步）、sync-engine（推送/拉取/家庭 CRUD）、realtime（订阅）
+
+## Supabase 配置
+
+如需使用云端同步功能，需要：
+
+1. 在 [Supabase](https://supabase.com) 创建项目
+2. 复制 `supabase-setup.sql` 中的 SQL 到 Supabase SQL Editor 执行（创建表、触发器等）
+3. 在项目根目录创建 `.env.local` 文件：
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
 
 ## License
 
