@@ -2,6 +2,7 @@ import { StyleSheet, Pressable, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { formatCurrency, formatRelativeDate } from '@/utils/format';
+import { useTheme } from '@/hooks/use-theme';
 import { type TransactionWithCategory } from '@/types/transaction';
 
 interface Props {
@@ -11,6 +12,8 @@ interface Props {
 }
 
 export function RecentTransactions({ transactions, onViewAll, onItemPress }: Props) {
+  const theme = useTheme();
+
   if (transactions.length === 0) return null;
 
   return (
@@ -63,7 +66,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1a1a1a',
   },
   viewAll: {
     fontSize: 13,
@@ -75,7 +77,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: 'rgba(128,128,128,0.2)',
   },
   dot: {
     width: 10,
@@ -89,12 +91,11 @@ const styles = StyleSheet.create({
   category: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1a1a1a',
   },
   note: {
     fontSize: 11,
-    color: '#999',
     marginTop: 1,
+    opacity: 0.5,
   },
   right: {
     alignItems: 'flex-end',
@@ -102,11 +103,10 @@ const styles = StyleSheet.create({
   amount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1a1a1a',
   },
   date: {
     fontSize: 11,
-    color: '#999',
     marginTop: 1,
+    opacity: 0.5,
   },
 });

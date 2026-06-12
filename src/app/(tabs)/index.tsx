@@ -20,13 +20,18 @@ export default function DashboardScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
 
+  // Today's data for the net total card
   const [incomeTotal, setIncomeTotal] = useState<ReportSummary>({ total: 0, count: 0 });
   const [expenseTotal, setExpenseTotal] = useState<ReportSummary>({ total: 0, count: 0 });
+  // Monthly data for the breakdown section (so past-date transactions show up)
+  const [monthIncome, setMonthIncome] = useState<ReportSummary>({ total: 0, count: 0 });
+  const [monthExpense, setMonthExpense] = useState<ReportSummary>({ total: 0, count: 0 });
   const [recent, setRecent] = useState<TransactionWithCategory[]>([]);
   const [hasData, setHasData] = useState(false);
 
   const now = new Date();
   const todayStr = toDateString(now);
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const periodLabel = `${now.getMonth() + 1}月${now.getDate()}日`;
 
   const loadData = useCallback(async () => {
@@ -34,16 +39,20 @@ export default function DashboardScreen() {
       const txRepo = createTransactionRepo(db);
       const reportQueries = createReportQueries(db);
 
-      const [incomeTotalData, expenseTotalData, recentData] = await Promise.all([
+      const [incomeTotalData, expenseTotalData, monthIncomeData, monthExpenseData, recentData] = await Promise.all([
         reportQueries.totalIncome(todayStr, todayStr),
         reportQueries.totalExpense(todayStr, todayStr),
+        reportQueries.totalIncome(monthStart, todayStr),
+        reportQueries.totalExpense(monthStart, todayStr),
         txRepo.getRecent(6),
       ]);
 
       setIncomeTotal(incomeTotalData);
       setExpenseTotal(expenseTotalData);
+      setMonthIncome(monthIncomeData);
+      setMonthExpense(monthExpenseData);
       setRecent(recentData);
-      setHasData(incomeTotalData.count > 0 || expenseTotalData.count > 0 || recentData.length > 0);
+      setHasData(recentData.length > 0 || incomeTotalData.count > 0 || expenseTotalData.count > 0);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     }
@@ -60,6 +69,11 @@ export default function DashboardScreen() {
       loadData();
     }, [loadData])
   );
+
+  // Determine which totals to show in the breakdown
+  const breakdownIncome = monthIncome.count > 0 ? monthIncome : incomeTotal;
+  const breakdownExpense = monthExpense.count > 0 ? monthExpense : expenseTotal;
+  const hasBreakdown = breakdownIncome.count > 0 || breakdownExpense.count > 0;
 
   return (
     <ThemedView style={styles.container}>
@@ -84,38 +98,50 @@ export default function DashboardScreen() {
                 );
               })()}
 
-              {incomeTotal.count + expenseTotal.count > 0 && (
-                <ThemedView style={cardStyles.card}>
-                  <ThemedText style={cardStyles.title}>收支明细</ThemedText>
+              {hasBreakdown && (
+                <ThemedView style={cardStyles.breakdownSection}>
+                  <ThemedText style={cardStyles.sectionTitle}>本月收支</ThemedText>
                   <View style={cardStyles.breakdownRow}>
-                    {incomeTotal.count > 0 && (
+                    {breakdownIncome.count > 0 && (
                       <View style={[cardStyles.breakdownBox, { backgroundColor: '#f0fdf4' }]}>
-                        <View style={cardStyles.breakdownHeader}>
-                          <ThemedText style={cardStyles.breakdownIcon}>📥</ThemedText>
-                          <ThemedText style={cardStyles.breakdownLabel}>收入</ThemedText>
-                          <ThemedText style={[cardStyles.breakdownPct, { color: '#2E7D32' }]}>
-                            {((incomeTotal.total / (incomeTotal.total + expenseTotal.total)) * 100).toFixed(0)}%
+                        <View style={cardStyles.breakdownInner}>
+                          <View style={cardStyles.breakdownHeader}>
+                            <View style={[cardStyles.breakdownIcon, { backgroundColor: '#4CAF50' }]}>
+                              <ThemedText style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>收</ThemedText>
+                            </View>
+                            <ThemedText style={cardStyles.breakdownLabel}>收入</ThemedText>
+                            <ThemedText style={[cardStyles.breakdownPct, { color: '#2E7D32' }]}>
+                              {breakdownExpense.count > 0
+                                ? ((breakdownIncome.total / (breakdownIncome.total + breakdownExpense.total)) * 100).toFixed(0)
+                                : '100'}%
+                            </ThemedText>
+                          </View>
+                          <ThemedText style={[cardStyles.breakdownAmount, { color: '#2E7D32' }]}>
+                            {formatCurrency(breakdownIncome.total)}
                           </ThemedText>
+                          <ThemedText style={cardStyles.breakdownCount}>共 {breakdownIncome.count} 笔</ThemedText>
                         </View>
-                        <ThemedText style={[cardStyles.breakdownAmount, { color: '#2E7D32' }]}>
-                          {formatCurrency(incomeTotal.total)}
-                        </ThemedText>
-                        <ThemedText style={cardStyles.breakdownCount}>共 {incomeTotal.count} 笔</ThemedText>
                       </View>
                     )}
-                    {expenseTotal.count > 0 && (
+                    {breakdownExpense.count > 0 && (
                       <View style={[cardStyles.breakdownBox, { backgroundColor: '#fef2f2' }]}>
-                        <View style={cardStyles.breakdownHeader}>
-                          <ThemedText style={cardStyles.breakdownIcon}>📤</ThemedText>
-                          <ThemedText style={cardStyles.breakdownLabel}>支出</ThemedText>
-                          <ThemedText style={[cardStyles.breakdownPct, { color: '#C62828' }]}>
-                            {((expenseTotal.total / (incomeTotal.total + expenseTotal.total)) * 100).toFixed(0)}%
+                        <View style={cardStyles.breakdownInner}>
+                          <View style={cardStyles.breakdownHeader}>
+                            <View style={[cardStyles.breakdownIcon, { backgroundColor: '#F44336' }]}>
+                              <ThemedText style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>支</ThemedText>
+                            </View>
+                            <ThemedText style={cardStyles.breakdownLabel}>支出</ThemedText>
+                            <ThemedText style={[cardStyles.breakdownPct, { color: '#C62828' }]}>
+                              {breakdownIncome.count > 0
+                                ? ((breakdownExpense.total / (breakdownIncome.total + breakdownExpense.total)) * 100).toFixed(0)
+                                : '100'}%
+                            </ThemedText>
+                          </View>
+                          <ThemedText style={[cardStyles.breakdownAmount, { color: '#C62828' }]}>
+                            {formatCurrency(breakdownExpense.total)}
                           </ThemedText>
+                          <ThemedText style={cardStyles.breakdownCount}>共 {breakdownExpense.count} 笔</ThemedText>
                         </View>
-                        <ThemedText style={[cardStyles.breakdownAmount, { color: '#C62828' }]}>
-                          {formatCurrency(expenseTotal.total)}
-                        </ThemedText>
-                        <ThemedText style={cardStyles.breakdownCount}>共 {expenseTotal.count} 笔</ThemedText>
                       </View>
                     )}
                   </View>
@@ -148,12 +174,6 @@ const styles = StyleSheet.create({
 });
 
 const cardStyles = StyleSheet.create({
-  card: {
-    marginHorizontal: 16,
-    marginBottom: 4,
-    padding: 20,
-    borderRadius: 16,
-  },
   netTotalCard: {
     marginHorizontal: 16,
     marginBottom: 4,
@@ -177,18 +197,33 @@ const cardStyles = StyleSheet.create({
     fontSize: 13,
     opacity: 0.4,
   },
-  title: {
+  // Breakdown section — background edges align with netTotalCard
+  breakdownSection: {
+    marginHorizontal: 16,
+    marginBottom: 4,
+    borderRadius: 16,
+    overflow: 'hidden',
+    paddingTop: 20,
+    paddingBottom: 0,
+  },
+  sectionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 12,
+    paddingHorizontal: 24,
+    paddingBottom: 12,
   },
   breakdownRow: {
     flexDirection: 'row',
     gap: 12,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
   },
   breakdownBox: {
     flex: 1,
     borderRadius: 14,
+    overflow: 'hidden',
+  },
+  breakdownInner: {
     padding: 16,
   },
   breakdownHeader: {
@@ -197,7 +232,11 @@ const cardStyles = StyleSheet.create({
     marginBottom: 8,
   },
   breakdownIcon: {
-    fontSize: 18,
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 6,
   },
   breakdownLabel: {
